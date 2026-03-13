@@ -16,6 +16,25 @@ import {
   Film,
   Baseline,
   FileOutput,
+  FileKey2,
+  Code2,
+  Hash,
+  Contrast,
+  Search,
+  Gauge,
+  Cookie,
+  MonitorSmartphone,
+  Share2,
+  Bot,
+  Network,
+  QrCode,
+  FileJson,
+  TableProperties,
+  Fingerprint,
+  Database,
+  Clock,
+  Wifi,
+  Coffee,
 } from "lucide-react";
 
 export interface ToolItem {
@@ -79,15 +98,13 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "Base32 · Base58 · Base64 인코딩 및 디코딩",
     href: "/tools/encode-decode/base-encoder",
     icon: Binary,
-    badge: "NEW",
   },
   {
     id: "crypto-tool",
     label: "암호화 / 복호화",
-    description: "AES-256 · RSA-2048 대칭 및 비대칭 암호화 테스트",
+    description: "AES-256 대칭 암호화 · RSA-2048 비대칭 암호화 테스트",
     href: "/tools/encode-decode/crypto-tool",
     icon: ShieldCheck,
-    badge: "NEW",
   },
   {
     id: "url-shortener",
@@ -95,7 +112,27 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "긴 URL을 짧은 링크로 즉시 변환",
     href: "/tools/encode-decode/url-shortener",
     icon: Link2,
-    badge: "NEW",
+  },
+  {
+    id: "jwt-decoder",
+    label: "JWT 디코더",
+    description: "JWT 토큰의 Header · Payload · 만료 시간을 브라우저에서 즉시 디코딩",
+    href: "/tools/encode-decode/jwt-decoder",
+    icon: FileKey2,
+  },
+  {
+    id: "html-encoder",
+    label: "HTML 인코더 / 디코더",
+    description: "특수 문자 ↔ HTML 엔티티(&amp; &lt; &gt; &quot;) 양방향 변환",
+    href: "/tools/encode-decode/html-encoder",
+    icon: Code2,
+  },
+  {
+    id: "sha256",
+    label: "Hash 생성기",
+    description: "SHA-256 · SHA-1 · SHA-512 해시를 HEX · Base64로 즉시 계산",
+    href: "/tools/encode-decode/sha256",
+    icon: Hash,
   },
 ];
 
@@ -106,7 +143,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "텍스트 언어 자동 감지 및 10개 언어 번역",
     href: "/tools/text/lang-detector",
     icon: Languages,
-    badge: "NEW",
   },
   {
     id: "summarizer",
@@ -114,7 +150,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "긴 글에서 핵심 문장과 주요 키워드 자동 추출",
     href: "/tools/text/summarizer",
     icon: FileText,
-    badge: "NEW",
   },
   {
     id: "alt-text",
@@ -122,7 +157,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "이미지 설명용 alt 텍스트 작성 가이드 및 접근성 향상",
     href: "/tools/text/alt-text",
     icon: ImageIcon,
-    badge: "NEW",
   },
 ];
 
@@ -133,7 +167,6 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "MP3·WAV·OGG 등 오디오를 WAV로 변환 및 미리보기",
     href: "/tools/converter/audio-converter",
     icon: Music,
-    badge: "NEW",
   },
   {
     id: "video-converter",
@@ -141,7 +174,6 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "MP4·WebM 해상도·화질 압축 및 WebM 포맷 변환",
     href: "/tools/converter/video-converter",
     icon: Film,
-    badge: "NEW",
   },
   {
     id: "font-converter",
@@ -149,7 +181,6 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "TTF·OTF → WOFF 변환 및 CSS @font-face 코드 생성",
     href: "/tools/converter/font-converter",
     icon: Baseline,
-    badge: "NEW",
   },
   {
     id: "doc-converter",
@@ -157,7 +188,6 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "이미지 → PDF 변환 및 PDF → 이미지 추출",
     href: "/tools/converter/doc-converter",
     icon: FileOutput,
-    badge: "NEW",
   },
   {
     id: "image-converter",
@@ -165,6 +195,135 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "JPEG·PNG·WebP·SVG 포맷 변환, 압축, 리사이즈, 배경 제거",
     href: "/tools/converter/image-converter",
     icon: ImageIcon,
+  },
+  {
+    id: "qr-tool",
+    label: "QR 코드 도구",
+    description: "URL → QR 코드 생성 및 QR 이미지/카메라 스캔으로 정보 추출",
+    href: "/tools/converter/qr-tool",
+    icon: QrCode,
+    badge: "NEW",
+  },
+];
+
+export const WEB_TOOLS: ToolItem[] = [
+  {
+    id: "color-contrast",
+    label: "Color Contrast Checker",
+    description: "전경색·배경색 조합의 WCAG AA · AAA 명암비 즉시 검사",
+    href: "/tools/web/color-contrast",
+    icon: Contrast,
+    badge: "NEW",
+  },
+  {
+    id: "seo-analyzer",
+    label: "SEO 분석기",
+    description: "title · description · heading · OpenGraph 태그 분석 및 점수 산출",
+    href: "/tools/web/seo-analyzer",
+    icon: Search,
+  },
+  {
+    id: "performance-test",
+    label: "Performance Test",
+    description: "PageSpeed Insights로 Core Web Vitals 측정",
+    href: "/tools/web/performance-test",
+    icon: Gauge,
+  },
+  {
+    id: "cookie-viewer",
+    label: "Cookie / Session Viewer",
+    description: "현재 페이지의 Cookie · localStorage · sessionStorage 조회",
+    href: "/tools/web/cookie-viewer",
+    icon: Cookie,
+  },
+  {
+    id: "meta-preview",
+    label: "Meta Tag Preview",
+    description: "Google 검색 결과 스니펫 미리보기",
+    href: "/tools/web/meta-preview",
+    icon: MonitorSmartphone,
+  },
+  {
+    id: "og-preview",
+    label: "OpenGraph Preview",
+    description: "Facebook · Twitter(X) · Discord 소셜 카드 미리보기",
+    href: "/tools/web/og-preview",
+    icon: Share2,
+  },
+  {
+    id: "robots-generator",
+    label: "Robots.txt Generator",
+    description: "User-agent 규칙으로 robots.txt 즉시 생성",
+    href: "/tools/web/robots-generator",
+    icon: Bot,
+  },
+  {
+    id: "sitemap-generator",
+    label: "Sitemap Generator",
+    description: "URL 목록을 XML sitemap으로 즉시 변환",
+    href: "/tools/web/sitemap-generator",
+    icon: Network,
+  },
+];
+
+export const DATA_FORMAT_TOOLS: ToolItem[] = [
+  {
+    id: "csv-json",
+    label: "CSV ↔ JSON",
+    description: "CSV와 JSON 형식을 양방향으로 즉시 변환",
+    href: "/tools/data-format/csv-json",
+    icon: FileJson,
+    badge: "NEW",
+  },
+  {
+    id: "excel-converter",
+    label: "Excel 변환기",
+    description: "XLSX·XLS·CSV 파일을 JSON 또는 CSV로 변환 및 테이블 미리보기",
+    href: "/tools/data-format/excel-converter",
+    icon: TableProperties,
+    badge: "NEW",
+  },
+  {
+    id: "uuid-generator",
+    label: "UUID 생성기",
+    description: "UUID v4 단일·대량 생성 및 다양한 포맷 변환",
+    href: "/tools/data-format/uuid-generator",
+    icon: Fingerprint,
+    badge: "NEW",
+  },
+  {
+    id: "data-generator",
+    label: "샘플 데이터 생성기",
+    description: "이름·이메일·전화번호 등 테스트용 샘플 데이터를 JSON·CSV·SQL로 즉시 생성",
+    href: "/tools/data-format/data-generator",
+    icon: Database,
+    badge: "NEW",
+  },
+  {
+    id: "timestamp-converter",
+    label: "타임스탬프 변환기",
+    description: "Unix 타임스탬프 ↔ 날짜/시간 양방향 변환 및 KST·UTC 동시 표시",
+    href: "/tools/data-format/timestamp-converter",
+    icon: Clock,
+    badge: "NEW",
+  },
+];
+
+export const ETC_TOOLS: ToolItem[] = [
+  {
+    id: "ip-lookup",
+    label: "공인 IP 조회",
+    description: "현재 접속 중인 공인 IP 주소 및 위치 정보 즉시 조회",
+    href: "/tools/etc/ip-lookup",
+    icon: Wifi,
+    badge: "NEW",
+  },
+  {
+    id: "coffee-bet",
+    label: "커피내기 컬렉션",
+    description: "팀원과 커피 내기를 할 수 있는 다양한 미니 게임 모음",
+    href: "/tools/etc/coffee-bet",
+    icon: Coffee,
     badge: "NEW",
   },
 ];
@@ -175,4 +334,7 @@ export const TOOLS_BY_CATEGORY: Record<string, ToolItem[]> = {
   "encode-decode": ENCODE_DECODE_TOOLS,
   text: TEXT_TOOLS,
   converter: CONVERTER_TOOLS,
+  web: WEB_TOOLS,
+  "data-format": DATA_FORMAT_TOOLS,
+  etc: ETC_TOOLS,
 };

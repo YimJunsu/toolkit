@@ -100,15 +100,8 @@ export default function AboutPage() {
           {/* 타이틀 */}
           <h1 className="text-4xl font-bold tracking-tight text-text-primary md:text-5xl lg:text-6xl">
             필요한 도구,{" "}
-            <span
-              style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              한 곳에서
+            <span className="text-text-primary border-b border-brand">
+              바로 여기서
             </span>
           </h1>
 

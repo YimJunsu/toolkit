@@ -10,7 +10,6 @@ const SERVICE_LINK_GROUP: FooterLinkGroup = {
   title: "서비스",
   links: [
     { label: "소개",         href: "/about" },
-    { label: "업데이트 로그", href: "/changelog" },
   ],
 };
 

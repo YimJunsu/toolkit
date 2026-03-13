@@ -7,6 +7,7 @@ import { CATEGORIES } from "@/lib/constants/categories";
 import { TOOLS_BY_CATEGORY } from "@/lib/constants/tools";
 import type { Category } from "@/lib/constants/categories";
 
+
 export function Header() {
   const [openCategoryId, setOpenCategoryId]     = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

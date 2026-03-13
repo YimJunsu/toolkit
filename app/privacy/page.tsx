@@ -126,8 +126,8 @@ export default function PrivacyPage() {
               개인정보 처리와 관련한 문의 사항이 있으시면 아래로 연락해 주시기 바랍니다.
             </p>
             <div className="mt-3 rounded-lg border border-border bg-bg-secondary p-4 text-sm text-text-secondary">
-              <p className="font-medium text-text-primary">tool.kit 운영팀</p>
-              <p className="mt-1">이메일: contact@toolkit.example.com</p>
+              <p className="font-medium text-text-primary">tool.kit 운영자</p>
+              <p className="mt-1">이메일: yimjunsu@gmail.com</p>
             </div>
           </PrivacySection>
 

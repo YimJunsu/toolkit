@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   ShieldCheck, Copy, Check, RefreshCw,
-  Lock, Unlock, Key, Hash, ArrowRight, ArrowLeft,
+  Lock, Unlock, Key, ArrowRight, ArrowLeft,
 } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/lib/utils/cryptoUtils";
 import type { RsaKeyPair } from "@/lib/utils/cryptoUtils";
 
-type CryptoTab = "aes" | "rsa" | "sha256";
+type CryptoTab = "aes" | "rsa";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -406,119 +406,10 @@ function RsaTab() {
   );
 }
 
-/* ── SHA-256 탭 ── */
-function Sha256Tab() {
-  const [input, setInput]     = useState("");
-  const [hashHex, setHashHex] = useState("");
-  const [hashB64, setHashB64] = useState("");
-  const [copied, setCopied]   = useState<string | null>(null);
-
-  // input 변경 시 비동기로 SHA-256 계산
-  useEffect(() => {
-    if (!input) {
-      setHashHex("");
-      setHashB64("");
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const buf = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(input)
-      );
-      if (cancelled) return;
-      const arr = new Uint8Array(buf);
-      setHashHex(Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join(""));
-      setHashB64(btoa(String.fromCharCode(...arr)));
-    })();
-    return () => { cancelled = true; };
-  }, [input]);
-
-  const handleCopy = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
-
-  const byteLen = new TextEncoder().encode(input).length;
-
-  return (
-    <div className="flex flex-col gap-5">
-      {/* 안내 */}
-      <div className="rounded-lg border border-border bg-bg-secondary px-4 py-3 text-xs text-text-secondary">
-        <strong className="text-text-primary">SHA-256</strong> — 256비트(32바이트) 단방향 해시 함수입니다.
-        비밀번호 저장, 파일 무결성 검사, 디지털 서명 등에 사용됩니다. 해시는 복호화가 불가능합니다.
-      </div>
-
-      {/* 입력 */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold text-text-secondary">입력 텍스트</label>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-secondary">{byteLen} bytes</span>
-            <button
-              type="button"
-              onClick={() => setInput("")}
-              disabled={!input}
-              className="text-xs text-text-secondary transition-colors hover:text-text-primary disabled:opacity-30"
-            >
-              지우기
-            </button>
-          </div>
-        </div>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="해시를 계산할 텍스트를 입력하세요..."
-          rows={5}
-          className="resize-none rounded-xl border border-border bg-bg-secondary p-4 font-mono text-sm text-text-primary placeholder-text-secondary/50 focus:border-brand focus:outline-none"
-          spellCheck={false}
-        />
-      </div>
-
-      {/* 해시 결과 */}
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-text-primary">SHA-256 해시 결과</h3>
-        <div className="overflow-hidden rounded-xl border border-border">
-          {[
-            { label: "HEX (16진수)", value: hashHex, id: "hex" },
-            { label: "Base64", value: hashB64, id: "b64" },
-          ].map(({ label, value, id }) => (
-            <div key={id} className="flex items-center gap-3 border-b border-border last:border-b-0 px-4 py-3">
-              <span className="w-24 shrink-0 text-xs font-semibold text-text-secondary">{label}</span>
-              <span className="flex-1 break-all font-mono text-xs text-text-primary">
-                {value || <span className="text-text-secondary/40">—</span>}
-              </span>
-              <CopyBtn value={value} id={id} copied={copied} onCopy={handleCopy} label={false} />
-            </div>
-          ))}
-        </div>
-
-        {/* 메타 정보 */}
-        {hashHex && (
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "알고리즘", value: "SHA-256" },
-              { label: "출력 길이", value: "256 bit / 32 byte" },
-              { label: "HEX 길이", value: `${hashHex.length} 자` },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-lg border border-border bg-bg-secondary px-3 py-2 text-center">
-                <p className="text-xs text-text-secondary">{label}</p>
-                <p className="mt-0.5 font-mono text-xs font-semibold text-text-primary">{value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ── 메인 페이지 ── */
-const TAB_CONFIG: { id: CryptoTab; label: string; icon: typeof Hash }[] = [
-  { id: "aes",    label: "AES (대칭)",    icon: Lock  },
-  { id: "rsa",    label: "RSA (비대칭)",  icon: Key   },
-  { id: "sha256", label: "SHA-256 (해시)", icon: Hash  },
+const TAB_CONFIG: { id: CryptoTab; label: string; icon: typeof Key }[] = [
+  { id: "aes", label: "AES (대칭)",   icon: Lock },
+  { id: "rsa", label: "RSA (비대칭)", icon: Key  },
 ];
 
 export default function CryptoToolPage() {
@@ -528,7 +419,7 @@ export default function CryptoToolPage() {
     <ToolPageLayout
       breadcrumbs={BREADCRUMBS}
       title="암호화 / 복호화"
-      description="AES-256 · RSA-2048 암호화 및 SHA-256 해시를 브라우저에서 직접 테스트합니다."
+      description="AES-256 대칭 암호화 및 RSA-2048 비대칭 암호화를 브라우저에서 직접 테스트합니다."
       icon={ShieldCheck}
     >
       {/* 탭 바 */}
@@ -550,9 +441,8 @@ export default function CryptoToolPage() {
         ))}
       </div>
 
-      {tab === "aes"    && <AesTab />}
-      {tab === "rsa"    && <RsaTab />}
-      {tab === "sha256" && <Sha256Tab />}
+      {tab === "aes" && <AesTab />}
+      {tab === "rsa" && <RsaTab />}
     </ToolPageLayout>
   );
 }
