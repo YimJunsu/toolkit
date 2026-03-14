@@ -35,6 +35,17 @@ import {
   Clock,
   Wifi,
   Coffee,
+  Braces,
+  Regex,
+  Table2,
+  GitCompare,
+  BookOpen,
+  Send,
+  Bookmark,
+  ScanText,
+  Ruler,
+  TrendingUp,
+  DollarSign,
 } from "lucide-react";
 
 export interface ToolItem {
@@ -45,6 +56,73 @@ export interface ToolItem {
   icon: LucideIcon;
   badge?: "NEW" | "인기";
 }
+
+export const CODE_TOOLS: ToolItem[] = [
+  {
+    id: "json-formatter",
+    label: "JSON Formatter / Validator",
+    description: "JSON 포맷 정렬 · 최소화 · 유효성 검사 및 오류 위치 표시",
+    href: "/tools/code/json-formatter",
+    icon: Braces,
+    badge: "NEW",
+  },
+  {
+    id: "regex-tester",
+    label: "Regex Tester",
+    description: "정규식 패턴 테스트 · 매치 그룹 시각화 · 플래그 옵션 지원",
+    href: "/tools/code/regex-tester",
+    icon: Regex,
+    badge: "NEW",
+  },
+  {
+    id: "sql-formatter",
+    label: "SQL Formatter",
+    description: "SQL 쿼리 자동 정렬 · 키워드 대문자 변환 · 복사",
+    href: "/tools/code/sql-formatter",
+    icon: Table2,
+    badge: "NEW",
+  },
+  {
+    id: "diff-tool",
+    label: "Diff / Merge Tool",
+    description: "두 텍스트 라인 단위 비교 · 추가/삭제 하이라이트 시각화",
+    href: "/tools/code/diff-tool",
+    icon: GitCompare,
+    badge: "NEW",
+  },
+  {
+    id: "markdown-editor",
+    label: "Markdown Editor",
+    description: "마크다운 실시간 미리보기 · 편집기 분할 화면",
+    href: "/tools/code/markdown-editor",
+    icon: BookOpen,
+    badge: "NEW",
+  },
+  {
+    id: "api-tester",
+    label: "API Request Tester",
+    description: "HTTP 요청 전송 · 응답 확인 · 헤더 / 바디 설정",
+    href: "/tools/code/api-tester",
+    icon: Send,
+    badge: "NEW",
+  },
+  {
+    id: "snippet-manager",
+    label: "Code Snippet Manager",
+    description: "코드 스니펫 저장 · 검색 · 복사 (로컬 저장소 기반)",
+    href: "/tools/code/snippet-manager",
+    icon: Bookmark,
+    badge: "NEW",
+  },
+  {
+    id: "lint-analyzer",
+    label: "Lint / Static Analyzer",
+    description: "JS·TS·Python·HTML·CSS 기본 코드 품질 검사 및 이슈 리포트",
+    href: "/tools/code/lint-analyzer",
+    icon: ScanText,
+    badge: "NEW",
+  },
+];
 
 export const DESIGN_TOOLS: ToolItem[] = [
   {
@@ -157,6 +235,38 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "이미지 설명용 alt 텍스트 작성 가이드 및 접근성 향상",
     href: "/tools/text/alt-text",
     icon: ImageIcon,
+  },
+  {
+    id: "word-counter",
+    label: "Word Counter",
+    description: "글자 수·단어 수·문장 수·읽기 시간 분석 및 키워드 빈도 통계",
+    href: "/tools/text/word-counter",
+    icon: Hash,
+    badge: "NEW",
+  },
+  {
+    id: "case-converter",
+    label: "Case Converter",
+    description: "camelCase · snake_case · PascalCase · kebab-case · UPPER / lower 즉시 변환",
+    href: "/tools/text/case-converter",
+    icon: Code2,
+    badge: "NEW",
+  },
+  {
+    id: "slug-generator",
+    label: "Slug Generator",
+    description: "제목 또는 문장을 URL 친화적인 slug로 즉시 변환",
+    href: "/tools/text/slug-generator",
+    icon: Link2,
+    badge: "NEW",
+  },
+  {
+    id: "lorem-ipsum",
+    label: "Lorem Ipsum Generator",
+    description: "단락·단어·문장 단위로 Lorem Ipsum 더미 텍스트 생성",
+    href: "/tools/text/lorem-ipsum",
+    icon: FileText,
+    badge: "NEW",
   },
 ];
 
@@ -309,7 +419,34 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
   },
 ];
 
+export const JOBS_TOOLS: ToolItem[] = [
+  {
+    id: "area-calculator",
+    label: "평수 계산기",
+    description: "평 ↔ m² ↔ ft² 면적 단위 변환 · 전용·공급·계약면적 계산",
+    href: "/tools/jobs/area-calculator",
+    icon: Ruler,
+    badge: "NEW",
+  },
+];
+
 export const ETC_TOOLS: ToolItem[] = [
+  {
+    id: "crypto-tracker",
+    label: "암호화폐 시세",
+    description: "상위 50개 코인 실시간 시세 · 가격 차트 · 검색 (60초 자동 갱신)",
+    href: "/tools/etc/crypto-tracker",
+    icon: TrendingUp,
+    badge: "NEW",
+  },
+  {
+    id: "currency-converter",
+    label: "환율 변환기",
+    description: "160개 통화 환율 조회 및 변환 · 일 1회 업데이트",
+    href: "/tools/etc/currency-converter",
+    icon: DollarSign,
+    badge: "NEW",
+  },
   {
     id: "ip-lookup",
     label: "공인 IP 조회",
@@ -330,11 +467,13 @@ export const ETC_TOOLS: ToolItem[] = [
 
 /** 카테고리 ID → 도구 목록 맵 */
 export const TOOLS_BY_CATEGORY: Record<string, ToolItem[]> = {
+  code: CODE_TOOLS,
   design: DESIGN_TOOLS,
   "encode-decode": ENCODE_DECODE_TOOLS,
   text: TEXT_TOOLS,
   converter: CONVERTER_TOOLS,
   web: WEB_TOOLS,
   "data-format": DATA_FORMAT_TOOLS,
+  jobs: JOBS_TOOLS,
   etc: ETC_TOOLS,
 };

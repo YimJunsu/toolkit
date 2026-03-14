@@ -12,5 +12,6 @@ export const CATEGORIES: Category[] = [
   { id: "web",            label: "Web",              href: "/tools/web" },
   { id: "text",           label: "Text",             href: "/tools/text" },
   { id: "encode-decode",  label: "Encode / Decode",  href: "/tools/encode-decode" },
+  { id: "jobs",           label: "Jobs",             href: "/tools/jobs" },
   { id: "etc",            label: "기타",              href: "/tools/etc" },
 ];

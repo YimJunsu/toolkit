@@ -45,7 +45,7 @@ export function Header() {
           className="shrink-0 font-bold text-text-primary transition-opacity hover:opacity-80"
           onClick={handleAllClose}
         >
-          <span className="text-lg tracking-tight">
+          <span className="text-3xl tracking-tight">
             tool<span className="text-brand">.</span>kit
           </span>
         </Link>
