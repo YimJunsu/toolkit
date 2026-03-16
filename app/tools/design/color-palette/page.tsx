@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { Palette, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 import {
   isValidHex, generatePalette, getContrastColor,
 } from "@/lib/utils/colorUtils";
@@ -27,7 +28,7 @@ export default function ColorPalettePage() {
   const [baseHex, setBaseHex]           = useState(DEFAULT_HEX);
   const [inputHex, setInputHex]         = useState(DEFAULT_HEX);
   const [activeType, setActiveType]     = useState<PaletteType>("monochromatic");
-  const [copied, setCopied]             = useState<string | null>(null);
+  const { copied, copy: handleCopy } = useClipboard();
 
   const palette = generatePalette(isValidHex(baseHex) ? baseHex : DEFAULT_HEX, activeType);
 
@@ -36,12 +37,6 @@ export default function ColorPalettePage() {
     setInputHex(normalized);
     if (isValidHex(normalized)) setBaseHex(normalized);
   };
-
-  const handleCopy = useCallback(async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
 
   const handleCopyAllCss = () => {
     const css = palette

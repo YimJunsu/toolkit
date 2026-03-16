@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LayoutGrid, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 type LayoutMode = "flex" | "grid";
 
@@ -54,7 +55,7 @@ function buildGridCss(cfg: GridConfig): string {
 
 export default function GridGeneratorPage() {
   const [mode, setMode]   = useState<LayoutMode>("flex");
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const [flex, setFlex] = useState<FlexConfig>({
     direction: "row",
@@ -91,10 +92,8 @@ export default function GridGeneratorPage() {
           gap: `${grid.gap}px`,
         };
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(fullCss);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+  const handleCopy = () => {
+    copy(fullCss, "default");
   };
 
   return (
@@ -221,8 +220,8 @@ export default function GridGeneratorPage() {
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-text-primary"
               >
-                {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                {copied ? "복사됨" : "복사"}
+                {copied === "default" ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                {copied === "default" ? "복사됨" : "복사"}
               </button>
             </div>
             <pre className="overflow-x-auto rounded-xl border border-border bg-bg-secondary p-4 font-mono text-sm text-text-primary">

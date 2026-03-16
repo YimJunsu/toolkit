@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Shapes, Copy, Check, Search, Smile } from "lucide-react";
 import * as LucideIcons from "lucide-react";
+import { useClipboard } from "@/hooks/useClipboard";
 import type { LucideIcon } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
@@ -377,7 +378,7 @@ export default function IconLibraryPage() {
   // 아이콘 탭 상태
   const [iconQuery, setIconQuery]       = useState("");
   const [iconCategory, setIconCategory] = useState("전체");
-  const [copied, setCopied]             = useState<string | null>(null);
+  const { copied, copy } = useClipboard();
   const [copyMode, setCopyMode]         = useState<"svg" | "react">("react");
 
   // 이모지 탭 상태
@@ -403,7 +404,7 @@ export default function IconLibraryPage() {
   [emojiQuery, emojiCategory]);
 
   /* ── 복사 핸들러 ── */
-  const handleIconCopy = async (icon: IconEntry) => {
+  const handleIconCopy = (icon: IconEntry) => {
     let text: string;
     if (copyMode === "react") {
       text = `import { ${icon.name} } from 'lucide-react';\n\n<${icon.name} size={24} />`;
@@ -411,15 +412,11 @@ export default function IconLibraryPage() {
       const el = document.querySelector(`[data-icon="${icon.name}"] svg`);
       text = el ? el.outerHTML : `<!-- ${icon.name} SVG -->`;
     }
-    await navigator.clipboard.writeText(text);
-    setCopied(icon.name);
-    setTimeout(() => setCopied(null), 1800);
+    copy(text, icon.name);
   };
 
-  const handleEmojiCopy = async (emoji: EmojiEntry) => {
-    await navigator.clipboard.writeText(emoji.char);
-    setCopied(`emoji-${emoji.char}`);
-    setTimeout(() => setCopied(null), 1800);
+  const handleEmojiCopy = (emoji: EmojiEntry) => {
+    copy(emoji.char, `emoji-${emoji.char}`);
   };
 
   return (

@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { TableProperties, Upload, Copy, Check, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -11,16 +12,6 @@ const BREADCRUMBS = [
 ];
 
 type OutputFormat = "JSON" | "CSV";
-
-function useCopy() {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
-  return { copied, copy };
-}
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -43,7 +34,7 @@ export default function ExcelConverterPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useClipboard();
 
   const loadSheet = useCallback((wb: XLSX.WorkBook, sheetName: string) => {
     const ws = wb.Sheets[sheetName];

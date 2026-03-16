@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Database, Copy, Check, Download, RefreshCw } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -115,7 +116,7 @@ export default function DataGeneratorPage() {
   const [count, setCount] = useState(10);
   const [format, setFormat] = useState<OutputFormat>("JSON");
   const [output, setOutput] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const toggleField = (key: FieldKey) => {
     setSelectedFields((prev) =>
@@ -137,12 +138,6 @@ export default function DataGeneratorPage() {
     }
   }, [selectedFields, count, format]);
 
-  const handleCopy = async () => {
-    if (!output) return;
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
 
   const handleDownload = () => {
     if (!output) return;
@@ -238,10 +233,10 @@ export default function DataGeneratorPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleCopy}
+                  onClick={() => copy(output, "output")}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
                 >
-                  {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                  {copied === "output" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                   복사
                 </button>
                 <button

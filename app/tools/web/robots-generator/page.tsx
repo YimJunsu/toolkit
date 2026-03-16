@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Bot, Plus, Trash2, Copy, Check, Download } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -73,7 +74,7 @@ export default function RobotsGeneratorPage() {
   const [rules, setRules]         = useState<RobotRule[]>([{ id: uid(), userAgent: "*", allow: ["/"], disallow: ["/admin/"] }]);
   const [sitemapUrl, setSitemapUrl] = useState("https://example.com/sitemap.xml");
   const [crawlDelay, setCrawlDelay] = useState("");
-  const [copied, setCopied]       = useState(false);
+  const { copied, copy } = useClipboard();
 
   const output = useMemo(() => generateRobotsTxt(rules, sitemapUrl, crawlDelay), [rules, sitemapUrl, crawlDelay]);
 
@@ -93,11 +94,6 @@ export default function RobotsGeneratorPage() {
   const removePath = (id: string, f: "allow" | "disallow", i: number) =>
     updateRule(id, { [f]: (rules.find((r) => r.id === id)?.[f] ?? []).filter((_, j) => j !== i) });
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  };
 
   const handleDownload = () => {
     const a = document.createElement("a");
@@ -242,7 +238,7 @@ export default function RobotsGeneratorPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={() => copy(output, "robots")}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
               >
                 {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}

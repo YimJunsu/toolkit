@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Layers, Plus, Trash2, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 interface ColorStop {
   id: string;
@@ -43,7 +44,7 @@ export default function GradientGeneratorPage() {
   const [stops, setStops]         = useState<ColorStop[]>(DEFAULT_STOPS);
   const [type, setType]           = useState<GradientType>("linear");
   const [angle, setAngle]         = useState(135);
-  const [copied, setCopied]       = useState(false);
+  const { copied, copy } = useClipboard();
 
   const gradientValue = buildGradientCss(stops, type, angle);
   const cssCode = `background: ${gradientValue};`;
@@ -72,10 +73,8 @@ export default function GradientGeneratorPage() {
     []
   );
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(cssCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+  const handleCopy = () => {
+    copy(cssCode, "default");
   };
 
   return (
@@ -201,10 +200,10 @@ export default function GradientGeneratorPage() {
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-text-primary"
               >
-                {copied
+                {copied === "default"
                   ? <Check size={13} className="text-emerald-400" />
                   : <Copy size={13} />}
-                {copied ? "복사됨" : "복사"}
+                {copied === "default" ? "복사됨" : "복사"}
               </button>
             </div>
             <pre className="overflow-x-auto rounded-xl border border-border bg-bg-secondary p-4 font-mono text-sm text-text-primary">

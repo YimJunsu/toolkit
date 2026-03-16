@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Wifi, Copy, Check, RefreshCw, MapPin, Globe, Server } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -45,7 +46,7 @@ export default function IpLookupPage() {
   const [ipInfo, setIpInfo] = useState<IpInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const fetchIpInfo = async () => {
     setLoading(true);
@@ -66,12 +67,6 @@ export default function IpLookupPage() {
     fetchIpInfo();
   }, []);
 
-  const handleCopy = async () => {
-    if (!ipInfo?.ip) return;
-    await navigator.clipboard.writeText(ipInfo.ip);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <ToolPageLayout
@@ -110,7 +105,7 @@ export default function IpLookupPage() {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={handleCopy}
+                  onClick={() => ipInfo?.ip && copy(ipInfo.ip, "ip")}
                   className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-muted"
                 >
                   {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}

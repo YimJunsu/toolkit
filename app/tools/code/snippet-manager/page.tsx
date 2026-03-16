@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Bookmark, Plus, Copy, Check, Trash2, Search, X } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -68,8 +69,7 @@ const LANG_COLORS: Record<Language, string> = {
 export default function SnippetManagerPage() {
   const [snippets, setSnippets] = useState<Snippet[]>([]);
   const [search, setSearch] = useState("");
-  const [filterLang, setFilterLang] = useState<Language | "전체">("전체");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [filterLang, setFilterLang] = useState<Language | "전체">("전체");const { copied: copiedId, copy } = useClipboard();
   const [showForm, setShowForm] = useState(false);
 
   // 폼 상태
@@ -106,10 +106,8 @@ export default function SnippetManagerPage() {
   const deleteSnippet = (id: string) =>
     save(snippets.filter((s) => s.id !== id));
 
-  const handleCopy = async (id: string, code: string) => {
-    await navigator.clipboard.writeText(code);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1800);
+  const handleCopy = (id: string, code: string) => {
+    copy(code, id);
   };
 
   const filtered = useMemo(() => {

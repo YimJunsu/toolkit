@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Code2, Copy, Check, ArrowLeftRight } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -53,19 +54,17 @@ const EXAMPLES = [
 export default function HtmlEncoderPage() {
   const [mode, setMode] = useState<Mode>("encode");
   const [input, setInput] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const output = useMemo(() => {
     if (!input) return "";
     return mode === "encode" ? encodeHtml(input) : decodeHtml(input);
   }, [input, mode]);
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(() => {
     if (!output) return;
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }, [output]);
+    copy(output, "default");
+  }, [output, copy]);
 
   const handleSwap = useCallback(() => {
     setMode((prev) => (prev === "encode" ? "decode" : "encode"));
@@ -181,8 +180,8 @@ export default function HtmlEncoderPage() {
                 disabled={!output}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand disabled:opacity-40"
               >
-                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                {copied ? "복사됨" : "복사"}
+                {copied === "default" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copied === "default" ? "복사됨" : "복사"}
               </button>
             </div>
             <textarea

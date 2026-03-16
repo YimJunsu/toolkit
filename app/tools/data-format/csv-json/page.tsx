@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { FileJson, Copy, Check, Download, Upload } from "lucide-react";
 import Papa from "papaparse";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -11,16 +12,6 @@ const BREADCRUMBS = [
 ];
 
 type Tab = "csv-to-json" | "json-to-csv";
-
-function useCopy() {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
-  return { copied, copy };
-}
 
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -47,7 +38,7 @@ export default function CsvJsonPage() {
   const [csvOutput, setCsvOutput] = useState("");
   const [jsonError, setJsonError] = useState("");
 
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useClipboard();
 
   // CSV → JSON 변환
   const convertCsvToJson = useCallback((csvText: string) => {

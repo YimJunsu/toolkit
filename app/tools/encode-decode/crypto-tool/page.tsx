@@ -6,6 +6,7 @@ import {
   Lock, Unlock, Key, ArrowRight, ArrowLeft,
 } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 import {
   encryptAES, decryptAES,
   generateRsaKeyPair, encryptRSA, decryptRSA,
@@ -52,13 +53,7 @@ function AesTab() {
   const [isDecrypting, setIsDecrypting] = useState(false);
   const [encryptError, setEncryptError] = useState<string | null>(null);
   const [decryptError, setDecryptError] = useState<string | null>(null);
-  const [copied, setCopied]           = useState<string | null>(null);
-
-  const handleCopy = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
+  const { copied, copy: handleCopy } = useClipboard();
 
   // 평문 → 암호화 → 암호문(우)
   const handleEncrypt = useCallback(async () => {
@@ -191,13 +186,7 @@ function RsaTab() {
   const [isDecrypting, setIsDecrypting]   = useState(false);
   const [encryptError, setEncryptError]   = useState<string | null>(null);
   const [decryptError, setDecryptError]   = useState<string | null>(null);
-  const [copied, setCopied]               = useState<string | null>(null);
-
-  const handleCopy = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
+  const { copied, copy: handleCopy } = useClipboard();
 
   const handleGenerateKeys = useCallback(async () => {
     setIsGenerating(true);

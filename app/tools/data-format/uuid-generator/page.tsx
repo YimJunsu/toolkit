@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Fingerprint, Copy, Check, Download, RefreshCw } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -41,7 +42,7 @@ export default function UuidGeneratorPage() {
   const [count, setCount] = useState(1);
   const [format, setFormat] = useState<UuidFormat>("standard");
   const [uuids, setUuids] = useState<string[]>([]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { copied: copiedId, copy } = useClipboard();
 
   const generate = useCallback(() => {
     const n = Math.min(Math.max(count, 1), 100);
@@ -52,18 +53,8 @@ export default function UuidGeneratorPage() {
     setUuids(results);
   }, [count, format]);
 
-  const copyItem = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1800);
-  }, []);
-
-  const copyAll = useCallback(async () => {
-    if (!uuids.length) return;
-    await navigator.clipboard.writeText(uuids.join("\n"));
-    setCopiedId("all");
-    setTimeout(() => setCopiedId(null), 1800);
-  }, [uuids]);
+  const copyItem = useCallback((text: string, id: string) => copy(text, id), [copy]);
+  const copyAll = useCallback(() => { if (uuids.length) copy(uuids.join("\n"), "all"); }, [uuids, copy]);
 
   const downloadTxt = () => {
     if (!uuids.length) return;

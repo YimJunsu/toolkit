@@ -3,22 +3,12 @@
 import { useState, useCallback } from "react";
 import { Clock, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
   { label: "Data / Format", href: "/tools/data-format" },
 ];
-
-function useCopy() {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = useCallback(async (text: string, id: string) => {
-    if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
-  return { copied, copy };
-}
 
 function toKST(date: Date): string {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -85,7 +75,7 @@ export default function TimestampConverterPage() {
   const [unixSec, setUnixSec] = useState<string>("");
   const [unixMs, setUnixMs] = useState<string>("");
 
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useClipboard();
 
   // A: 타임스탬프 → 날짜 변환
   const convertTs = useCallback((val: string) => {

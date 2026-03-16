@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { FileKey2, Copy, Check, AlertTriangle } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -92,13 +93,7 @@ function MetaRow({ label, value, highlight }: { label: string; value: string; hi
 
 export default function JwtDecoderPage() {
   const [token, setToken] = useState("");
-  const [copied, setCopied] = useState<string | null>(null);
-
-  const handleCopy = async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  };
+  const { copied, copy: handleCopy } = useClipboard();
 
   const result = useMemo<{ data: JwtParts | null; error: string | null }>(() => {
     if (!token.trim()) return { data: null, error: null };

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Ruler, Copy, Check, ArrowLeftRight } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -76,7 +77,7 @@ export default function AreaCalculatorPage() {
   /* ── 단위 변환 탭 ── */
   const [inputUnit, setInputUnit] = useState<UnitKey>("pyeong");
   const [inputValue, setInputValue] = useState("32");
-  const [copied, setCopied] = useState<string | null>(null);
+  const { copied, copy } = useClipboard();
 
   const numVal = parseFloat(inputValue) || 0;
   const calc =
@@ -84,11 +85,9 @@ export default function AreaCalculatorPage() {
     : inputUnit === "m2"   ? fromM2(numVal)
     : fromFt2(numVal);
 
-  const handleCopy = useCallback(async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
+  const handleCopy = useCallback((text: string, key: string) => {
+    copy(text, key);
+  }, [copy]);
 
   const handlePreset = (item: { pyeong?: number; m2?: number }) => {
     if (item.pyeong !== undefined) { setInputUnit("pyeong"); setInputValue(String(item.pyeong)); }

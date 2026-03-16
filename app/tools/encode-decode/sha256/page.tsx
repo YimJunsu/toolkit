@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Hash, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 import { md5 } from "@/lib/utils/hashUtils";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -42,7 +43,7 @@ export default function HashGeneratorPage() {
   const [hex, setHex]       = useState("");
   const [b64, setB64]       = useState("");
   const [byteLen, setByteLen] = useState(0);
-  const [copied, setCopied] = useState<string | null>(null);
+  const { copied, copy } = useClipboard();
 
   useEffect(() => {
     if (!input) {
@@ -61,12 +62,10 @@ export default function HashGeneratorPage() {
     return () => { cancelled = true; };
   }, [input, algo]);
 
-  const handleCopy = useCallback(async (text: string, id: string) => {
+  const handleCopy = (text: string, id: string) => {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
+    copy(text, id);
+  };
 
   const inputBytes = new TextEncoder().encode(input).length;
 

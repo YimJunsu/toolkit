@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { FileText, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 import { summarizeText, extractKeywords, getTextStats } from "@/lib/utils/textUtils";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -17,7 +18,7 @@ export default function SummarizerPage() {
   const [input, setInput]           = useState("");
   const [numSentences, setNumSentences] = useState(3);
   const [numKeywords, setNumKeywords]   = useState(10);
-  const [copied, setCopied]         = useState<string | null>(null);
+  const { copied, copy } = useClipboard();
 
   const stats   = useMemo(() => getTextStats(input), [input]);
   const summary = useMemo(
@@ -28,12 +29,6 @@ export default function SummarizerPage() {
     () => (input.trim() ? extractKeywords(input, numKeywords) : []),
     [input, numKeywords],
   );
-
-  const handleCopy = async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1800);
-  };
 
   const hasResult = !!summary && input.trim().length > 0;
 
@@ -134,7 +129,7 @@ export default function SummarizerPage() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => handleCopy(summary!.summary, "summary")}
+                  onClick={() => copy(summary!.summary, "summary")}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
                 >
                   {copied === "summary" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
@@ -157,7 +152,7 @@ export default function SummarizerPage() {
                 <p className="text-xs font-semibold text-text-secondary">주요 키워드</p>
                 <button
                   type="button"
-                  onClick={() => handleCopy(keywords.map((k) => k.word).join(", "), "keywords")}
+                  onClick={() => copy(keywords.map((k) => k.word).join(", "), "keywords")}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
                 >
                   {copied === "keywords" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}

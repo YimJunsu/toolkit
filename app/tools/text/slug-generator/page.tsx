@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Link2, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -94,16 +95,14 @@ export default function SlugGeneratorPage() {
     removeNumbers: false,
     maxLength: null,
   });
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
   const [maxLenInput, setMaxLenInput] = useState("");
 
   const slug = useMemo(() => generateSlug(input, opts), [input, opts]);
 
-  const handleCopy = async () => {
+  const handleCopy = () => {
     if (!slug) return;
-    await navigator.clipboard.writeText(slug);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    copy(slug);
   };
 
   const handleMaxLen = (v: string) => {

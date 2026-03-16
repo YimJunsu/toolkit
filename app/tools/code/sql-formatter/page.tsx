@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Table2, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -66,7 +67,7 @@ function formatSQL(sql: string, indent: number): string {
 
 export default function SqlFormatterPage() {
   const [input, setInput] = useState(SAMPLE_SQL);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
   const [indent, setIndent] = useState(2);
 
   const output = useMemo(() => {
@@ -74,11 +75,9 @@ export default function SqlFormatterPage() {
     return formatSQL(input, indent);
   }, [input, indent]);
 
-  const handleCopy = async () => {
+  const handleCopy = () => {
     if (!output) return;
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    copy(output);
   };
 
   return (

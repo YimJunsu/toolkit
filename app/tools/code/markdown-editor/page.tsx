@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { BookOpen, Copy, Check } from "lucide-react";
 import { marked } from "marked";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -49,17 +50,15 @@ type ViewMode = "split" | "edit" | "preview";
 export default function MarkdownEditorPage() {
   const [markdown, setMarkdown] = useState(SAMPLE_MD);
   const [viewMode, setViewMode] = useState<ViewMode>("split");
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const html = useMemo(() => {
     const result = marked.parse(markdown);
     return typeof result === "string" ? result : "";
   }, [markdown]);
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+  const handleCopy = () => {
+    copy(markdown);
   };
 
   return (

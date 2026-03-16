@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Code2, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -89,17 +90,15 @@ const CASES = [
 
 export default function CaseConverterPage() {
   const [input, setInput] = useState(SAMPLE);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { copied: copiedId, copy } = useClipboard();
 
   const results = useMemo(
     () => CASES.map((c) => ({ ...c, output: input ? c.fn(input) : "" })),
     [input]
   );
 
-  const handleCopy = async (id: string, text: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1800);
+  const handleCopy = (id: string, text: string) => {
+    copy(text, id);
   };
 
   return (

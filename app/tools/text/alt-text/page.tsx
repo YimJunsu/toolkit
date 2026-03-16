@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { ImageIcon, Copy, Check, AlertCircle, CheckCircle2 } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -158,7 +159,7 @@ export default function AltTextPage() {
   const [fields, setFields]         = useState<Record<string, string>>({});
   const [manualEdit, setManualEdit] = useState("");
   const [isEditing, setIsEditing]   = useState(false);
-  const [copied, setCopied]         = useState(false);
+  const { copied, copy } = useClipboard();
 
   const typeDef = IMAGE_TYPES.find((t) => t.id === imageType)!;
 
@@ -186,11 +187,9 @@ export default function AltTextPage() {
     setIsEditing(false);
   };
 
-  const handleCopy = async () => {
+  const handleCopy = () => {
     if (!altText) return;
-    await navigator.clipboard.writeText(altText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    copy(altText, "default");
   };
 
   const startEdit = () => {
@@ -271,8 +270,8 @@ export default function AltTextPage() {
                 disabled={!altText}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand disabled:opacity-40"
               >
-                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                {copied ? "복사됨" : "복사"}
+                {copied === "default" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copied === "default" ? "복사됨" : "복사"}
               </button>
             </div>
           </div>

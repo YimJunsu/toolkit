@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Braces, Copy, Check, AlertTriangle, Minimize2, Maximize2 } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -20,7 +21,7 @@ type Mode = "format" | "minify";
 
 export default function JsonFormatterPage() {
   const [input, setInput] = useState(SAMPLE_JSON);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
   const [mode, setMode] = useState<Mode>("format");
   const [indent, setIndent] = useState(2);
 
@@ -37,11 +38,9 @@ export default function JsonFormatterPage() {
     }
   }, [input, mode, indent]);
 
-  const handleCopy = async () => {
+  const handleCopy = () => {
     if (!result.output) return;
-    await navigator.clipboard.writeText(result.output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    copy(result.output);
   };
 
   const isValid = !result.error && input.trim().length > 0;

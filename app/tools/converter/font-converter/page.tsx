@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Baseline, Upload, Download, X, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },

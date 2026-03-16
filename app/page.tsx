@@ -2,8 +2,8 @@ import Link from "next/link";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { TOOLS_BY_CATEGORY } from "@/lib/constants/tools";
 import { CATEGORY_ICON_MAP } from "@/lib/constants/categoryIcons";
-import { CollapsibleCategorySection } from "./CollapsibleCategorySection";
 import { MobileHomePage } from "./MobileHomePage";
+import { DesktopHomePage } from "./DesktopHomePage";
 
 const totalTools = Object.values(TOOLS_BY_CATEGORY).reduce((s, a) => s + a.length, 0);
 
@@ -72,11 +72,9 @@ export default function MainPage() {
         <MobileHomePage />
       </div>
 
-      {/* ── 데스크탑 뷰: 카테고리 섹션 (기존 유지) ── */}
-      <div className="hidden md:flex md:flex-col md:gap-12">
-        {activeCategories.map((category) => (
-          <CollapsibleCategorySection key={category.id} category={category} />
-        ))}
+      {/* ── 데스크탑 뷰: 검색 + 카테고리 섹션 ── */}
+      <div className="hidden md:block">
+        <DesktopHomePage activeCategories={activeCategories} />
       </div>
 
       {/* ── 준비 중 카테고리 ── */}

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Languages, Copy, Check, RefreshCw, ArrowRight } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 import { detectLanguage } from "@/lib/utils/textUtils";
 import type { DetectedLanguage } from "@/lib/utils/textUtils";
 
@@ -40,7 +41,7 @@ export default function LangDetectorPage() {
   const [translated, setTranslated] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
   const [transError, setTransError] = useState<string | null>(null);
-  const [copied, setCopied]         = useState(false);
+  const { copied, copy } = useClipboard();
 
   const handleDetect = useCallback(() => {
     if (!input.trim()) return;
@@ -66,12 +67,10 @@ export default function LangDetectorPage() {
     }
   }, [input, fromLang, toLang]);
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(() => {
     if (!translated) return;
-    await navigator.clipboard.writeText(translated);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }, [translated]);
+    copy(translated, "default");
+  }, [translated, copy]);
 
   const handleSwapLangs = () => {
     setFromLang(toLang);
@@ -194,8 +193,8 @@ export default function LangDetectorPage() {
                 disabled={!translated}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand disabled:opacity-40"
               >
-                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                {copied ? "복사됨" : "복사"}
+                {copied === "default" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copied === "default" ? "복사됨" : "복사"}
               </button>
             </div>
             <div className={`flex min-h-[252px] flex-col rounded-xl border p-4 text-sm ${transError ? "border-red-500/50 bg-bg-primary" : "border-border bg-bg-primary"}`}>

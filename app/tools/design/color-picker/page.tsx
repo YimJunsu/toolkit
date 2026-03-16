@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Pipette, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 import {
   hexToRgb, rgbToHex, rgbToHsl, isValidHex,
 } from "@/lib/utils/colorUtils";
@@ -17,7 +18,7 @@ const BREADCRUMBS = [
 export default function ColorPickerPage() {
   const [hex, setHex]             = useState(DEFAULT_HEX);
   const [inputHex, setInputHex]   = useState(DEFAULT_HEX);
-  const [copied, setCopied]       = useState<string | null>(null);
+  const { copied, copy } = useClipboard();
   const [history, setHistory]     = useState<string[]>([DEFAULT_HEX]);
 
   const rgb = hexToRgb(hex) ?? { r: 129, g: 140, b: 248 };
@@ -43,11 +44,9 @@ export default function ColorPickerPage() {
     applyColor(rgbToHex(next.r, next.g, next.b));
   };
 
-  const handleCopy = useCallback(async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
+  const handleCopy = useCallback((text: string, key: string) => {
+    copy(text, key);
+  }, [copy]);
 
   const colorRows = [
     { label: "HEX",  value: hex,                                      key: "hex" },

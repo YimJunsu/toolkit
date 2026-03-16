@@ -20,6 +20,7 @@ import type { LucideIcon } from "lucide-react";
 import QRCode from "qrcode";
 import jsQR from "jsqr";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },

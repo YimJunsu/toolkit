@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Send, Copy, Check, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -45,7 +46,7 @@ export default function ApiTesterPage() {
   const [response, setResponse] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
   const [responseTab, setResponseTab] = useState<"body" | "headers">("body");
 
   const handleSend = async () => {
@@ -105,11 +106,9 @@ export default function ApiTesterPage() {
   const removeHeader = (idx: number) =>
     setHeaders((prev) => prev.filter((_, i) => i !== idx));
 
-  const handleCopy = async () => {
+  const handleCopy = () => {
     if (!response) return;
-    await navigator.clipboard.writeText(response.body);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    copy(response.body);
   };
 
   const formattedBody = (() => {

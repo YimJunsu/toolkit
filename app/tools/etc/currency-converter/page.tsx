@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { DollarSign, RefreshCw, Search, ArrowLeftRight, Copy, Check } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -70,7 +71,7 @@ export default function CurrencyConverterPage() {
   const [amount, setAmount]         = useState("1");
   const [from, setFrom]             = useState("USD");
   const [search, setSearch]         = useState("");
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const { copied: copiedCode, copy } = useClipboard();
 
   const fetchRates = async () => {
     setLoading(true);
@@ -111,10 +112,8 @@ export default function CurrencyConverterPage() {
     return filtered.filter(c => c !== from);
   }, [search, from]);
 
-  const handleCopy = async (code: string, value: string) => {
-    await navigator.clipboard.writeText(value);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 1800);
+  const handleCopy = (code: string, value: string) => {
+    copy(value, code);
   };
 
   const fromMeta = CURRENCY_META[from];

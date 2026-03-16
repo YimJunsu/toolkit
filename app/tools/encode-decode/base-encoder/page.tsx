@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { Binary, Copy, Check, ArrowLeftRight } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 import { encodeBase32, decodeBase32, encodeBase58, decodeBase58 } from "@/lib/utils/encodeUtils";
 
 type Encoding = "base32" | "base58" | "base64";
@@ -39,7 +40,7 @@ export default function BaseEncoderPage() {
   const [encoding, setEncoding] = useState<Encoding>("base64");
   const [mode, setMode] = useState<Mode>("encode");
   const [input, setInput] = useState("");
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   // useMemo로 렌더 중 setState 호출 제거 → 무한 루프 방지
   const { output, error } = useMemo<{ output: string; error: string | null }>(() => {
@@ -56,12 +57,10 @@ export default function BaseEncoderPage() {
     setInput(output);
   }, [output]);
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(() => {
     if (!output) return;
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }, [output]);
+    copy(output, "default");
+  }, [output, copy]);
 
   const handleEncodingChange = (enc: Encoding) => {
     setEncoding(enc);
@@ -200,8 +199,8 @@ export default function BaseEncoderPage() {
                 disabled={!output}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand disabled:opacity-40"
               >
-                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                {copied ? "복사됨" : "복사"}
+                {copied === "default" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copied === "default" ? "복사됨" : "복사"}
               </button>
             </div>
             <textarea

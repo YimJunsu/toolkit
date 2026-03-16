@@ -46,6 +46,12 @@ import {
   Ruler,
   TrendingUp,
   DollarSign,
+  Calculator,
+  Building2,
+  PenTool,
+  Paintbrush,
+  Sparkles,
+  Repeat2,
 } from "lucide-react";
 
 export interface ToolItem {
@@ -64,7 +70,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "JSON 포맷 정렬 · 최소화 · 유효성 검사 및 오류 위치 표시",
     href: "/tools/code/json-formatter",
     icon: Braces,
-    badge: "NEW",
   },
   {
     id: "regex-tester",
@@ -72,7 +77,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "정규식 패턴 테스트 · 매치 그룹 시각화 · 플래그 옵션 지원",
     href: "/tools/code/regex-tester",
     icon: Regex,
-    badge: "NEW",
   },
   {
     id: "sql-formatter",
@@ -80,7 +84,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "SQL 쿼리 자동 정렬 · 키워드 대문자 변환 · 복사",
     href: "/tools/code/sql-formatter",
     icon: Table2,
-    badge: "NEW",
   },
   {
     id: "diff-tool",
@@ -88,7 +91,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "두 텍스트 라인 단위 비교 · 추가/삭제 하이라이트 시각화",
     href: "/tools/code/diff-tool",
     icon: GitCompare,
-    badge: "NEW",
   },
   {
     id: "markdown-editor",
@@ -96,7 +98,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "마크다운 실시간 미리보기 · 편집기 분할 화면",
     href: "/tools/code/markdown-editor",
     icon: BookOpen,
-    badge: "NEW",
   },
   {
     id: "api-tester",
@@ -104,7 +105,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "HTTP 요청 전송 · 응답 확인 · 헤더 / 바디 설정",
     href: "/tools/code/api-tester",
     icon: Send,
-    badge: "NEW",
   },
   {
     id: "snippet-manager",
@@ -112,7 +112,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "코드 스니펫 저장 · 검색 · 복사 (로컬 저장소 기반)",
     href: "/tools/code/snippet-manager",
     icon: Bookmark,
-    badge: "NEW",
   },
   {
     id: "lint-analyzer",
@@ -120,7 +119,6 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "JS·TS·Python·HTML·CSS 기본 코드 품질 검사 및 이슈 리포트",
     href: "/tools/code/lint-analyzer",
     icon: ScanText,
-    badge: "NEW",
   },
 ];
 
@@ -166,6 +164,27 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "색상 조합으로 그라데이션 CSS 코드 즉시 생성",
     href: "/tools/design/gradient-generator",
     icon: Layers,
+  },
+  {
+    id: "glassmorphism",
+    label: "Glassmorphism Generator",
+    description: "blur · 투명도 · 테두리 실시간 조절로 유리 효과 CSS 코드 즉시 생성",
+    href: "/tools/design/glassmorphism",
+    icon: Sparkles,
+  },
+  {
+    id: "svg-editor",
+    label: "SVG Path Editor",
+    description: "SVG 코드 최적화 · 미니파이 · 포매팅 · 소수점 정리 및 미리보기",
+    href: "/tools/design/svg-editor",
+    icon: PenTool,
+  },
+  {
+    id: "tailwind-theme",
+    label: "Tailwind v4 테마 생성기",
+    description: "베이스 컬러로 oklch 기반 11단계 팔레트 생성 및 @theme 코드 출력",
+    href: "/tools/design/tailwind-theme",
+    icon: Paintbrush,
   },
 ];
 
@@ -242,7 +261,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "글자 수·단어 수·문장 수·읽기 시간 분석 및 키워드 빈도 통계",
     href: "/tools/text/word-counter",
     icon: Hash,
-    badge: "NEW",
   },
   {
     id: "case-converter",
@@ -250,7 +268,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "camelCase · snake_case · PascalCase · kebab-case · UPPER / lower 즉시 변환",
     href: "/tools/text/case-converter",
     icon: Code2,
-    badge: "NEW",
   },
   {
     id: "slug-generator",
@@ -258,7 +275,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "제목 또는 문장을 URL 친화적인 slug로 즉시 변환",
     href: "/tools/text/slug-generator",
     icon: Link2,
-    badge: "NEW",
   },
   {
     id: "lorem-ipsum",
@@ -266,7 +282,6 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "단락·단어·문장 단위로 Lorem Ipsum 더미 텍스트 생성",
     href: "/tools/text/lorem-ipsum",
     icon: FileText,
-    badge: "NEW",
   },
 ];
 
@@ -312,7 +327,6 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "URL → QR 코드 생성 및 QR 이미지/카메라 스캔으로 정보 추출",
     href: "/tools/converter/qr-tool",
     icon: QrCode,
-    badge: "NEW",
   },
 ];
 
@@ -323,7 +337,6 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "전경색·배경색 조합의 WCAG AA · AAA 명암비 즉시 검사",
     href: "/tools/web/color-contrast",
     icon: Contrast,
-    badge: "NEW",
   },
   {
     id: "seo-analyzer",
@@ -383,7 +396,6 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "CSV와 JSON 형식을 양방향으로 즉시 변환",
     href: "/tools/data-format/csv-json",
     icon: FileJson,
-    badge: "NEW",
   },
   {
     id: "excel-converter",
@@ -391,7 +403,6 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "XLSX·XLS·CSV 파일을 JSON 또는 CSV로 변환 및 테이블 미리보기",
     href: "/tools/data-format/excel-converter",
     icon: TableProperties,
-    badge: "NEW",
   },
   {
     id: "uuid-generator",
@@ -399,7 +410,6 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "UUID v4 단일·대량 생성 및 다양한 포맷 변환",
     href: "/tools/data-format/uuid-generator",
     icon: Fingerprint,
-    badge: "NEW",
   },
   {
     id: "data-generator",
@@ -407,7 +417,6 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "이름·이메일·전화번호 등 테스트용 샘플 데이터를 JSON·CSV·SQL로 즉시 생성",
     href: "/tools/data-format/data-generator",
     icon: Database,
-    badge: "NEW",
   },
   {
     id: "timestamp-converter",
@@ -415,7 +424,6 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "Unix 타임스탬프 ↔ 날짜/시간 양방향 변환 및 KST·UTC 동시 표시",
     href: "/tools/data-format/timestamp-converter",
     icon: Clock,
-    badge: "NEW",
   },
 ];
 
@@ -426,7 +434,27 @@ export const JOBS_TOOLS: ToolItem[] = [
     description: "평 ↔ m² ↔ ft² 면적 단위 변환 · 전용·공급·계약면적 계산",
     href: "/tools/jobs/area-calculator",
     icon: Ruler,
-    badge: "NEW",
+  },
+  {
+    id: "tax-calculator",
+    label: "세금 계산기",
+    description: "근로소득세 · VAT · 양도소득세 · 프리랜서 3.3%를 탭으로 전환하며 계산",
+    href: "/tools/jobs/tax-calculator",
+    icon: Calculator,
+  },
+  {
+    id: "hourly-salary",
+    label: "단가 변환기",
+    description: "시급 · 일급 · 주급 · 월급 · 연봉 즉시 상호 환산 · 외주 계약 단가 비교",
+    href: "/tools/jobs/hourly-salary",
+    icon: Repeat2,
+  },
+  {
+    id: "severance",
+    label: "퇴직금 계산기",
+    description: "2026년 고용노동부 기준 재직기간·평균임금으로 퇴직금 즉시 산정",
+    href: "/tools/jobs/severance",
+    icon: Building2,
   },
 ];
 
@@ -437,7 +465,6 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "상위 50개 코인 실시간 시세 · 가격 차트 · 검색 (60초 자동 갱신)",
     href: "/tools/etc/crypto-tracker",
     icon: TrendingUp,
-    badge: "NEW",
   },
   {
     id: "currency-converter",
@@ -445,7 +472,6 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "160개 통화 환율 조회 및 변환 · 일 1회 업데이트",
     href: "/tools/etc/currency-converter",
     icon: DollarSign,
-    badge: "NEW",
   },
   {
     id: "ip-lookup",
@@ -453,7 +479,6 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "현재 접속 중인 공인 IP 주소 및 위치 정보 즉시 조회",
     href: "/tools/etc/ip-lookup",
     icon: Wifi,
-    badge: "NEW",
   },
   {
     id: "coffee-bet",
@@ -461,7 +486,6 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "팀원과 커피 내기를 할 수 있는 다양한 미니 게임 모음",
     href: "/tools/etc/coffee-bet",
     icon: Coffee,
-    badge: "NEW",
   },
 ];
 

@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { FileText, Copy, Check, RefreshCw } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -72,7 +73,7 @@ export default function LoremIpsumPage() {
   const [count, setCount] = useState(3);
   const [startWithLorem, setStartWithLorem] = useState(true);
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 100000));
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useClipboard();
 
   const output = useMemo(() => {
     const rand = mulberry32(seed);
@@ -105,10 +106,8 @@ export default function LoremIpsumPage() {
 
   const refresh = useCallback(() => setSeed(Math.floor(Math.random() * 100000)), []);
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+  const handleCopy = () => {
+    copy(output);
   };
 
   const MAX: Record<UnitType, number> = { paragraphs: 20, sentences: 50, words: 500 };

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link2, Copy, Check, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
+import { useClipboard } from "@/hooks/useClipboard";
 
 interface HistoryItem {
   original: string;
@@ -32,7 +33,7 @@ export default function UrlShortenerPage() {
   const [result, setResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  const { copied, copy: handleCopy } = useClipboard();
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   /* localStorage 히스토리 로드 */
@@ -99,12 +100,6 @@ export default function UrlShortenerPage() {
       setIsLoading(false);
     }
   }, [inputUrl, saveHistory]);
-
-  const handleCopy = useCallback(async (text: string, key: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1800);
-  }, []);
 
   const handleClearHistory = useCallback(() => {
     saveHistory([]);
