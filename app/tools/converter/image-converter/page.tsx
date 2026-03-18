@@ -10,9 +10,83 @@ import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
 // ── Types ──────────────────────────────────────────────────────────
 
-type OutputFormat = "image/jpeg" | "image/webp" | "image/png";
+type OutputFormat = "image/jpeg" | "image/webp" | "image/png" | "image/x-icon";
 type ItemStatus   = "idle" | "processing" | "done" | "error";
 type TabMode      = "convert" | "bg-remove";
+
+// ── ICO Encoder ────────────────────────────────────────────────────
+
+const ICO_SIZES = [16, 32, 48, 64, 128, 256] as const;
+type IcoSize = (typeof ICO_SIZES)[number];
+
+async function renderToPngBuffer(file: File, size: number): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error("Canvas 실패")); return; }
+      ctx.drawImage(img, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => {
+        if (!blob) { reject(new Error("PNG 변환 실패")); return; }
+        blob.arrayBuffer().then(resolve).catch(reject);
+      }, "image/png");
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("이미지 로드 실패")); };
+    img.src = url;
+  });
+}
+
+async function buildIco(file: File, sizes: IcoSize[]): Promise<{ blob: Blob; dataUrl: string }> {
+  const pngBuffers = await Promise.all(sizes.map((s) => renderToPngBuffer(file, s)));
+
+  const headerSize   = 6;
+  const dirEntrySize = 16;
+  const count        = sizes.length;
+
+  // Calculate offsets
+  let dataOffset = headerSize + dirEntrySize * count;
+  const offsets: number[] = [];
+  for (const buf of pngBuffers) {
+    offsets.push(dataOffset);
+    dataOffset += buf.byteLength;
+  }
+
+  // ICONDIR header (6 bytes)
+  const header = new ArrayBuffer(headerSize);
+  const hv = new DataView(header);
+  hv.setUint16(0, 0, true); // reserved
+  hv.setUint16(2, 1, true); // type = ICO
+  hv.setUint16(4, count, true);
+
+  // Directory entries (16 bytes each)
+  const dirBuf = new ArrayBuffer(dirEntrySize * count);
+  const dv = new DataView(dirBuf);
+  for (let i = 0; i < count; i++) {
+    const base = i * 16;
+    const s = sizes[i];
+    dv.setUint8(base + 0, s === 256 ? 0 : s); // width (0 = 256)
+    dv.setUint8(base + 1, s === 256 ? 0 : s); // height
+    dv.setUint8(base + 2, 0);   // color count
+    dv.setUint8(base + 3, 0);   // reserved
+    dv.setUint16(base + 4, 1, true); // planes
+    dv.setUint16(base + 6, 32, true); // bit count
+    dv.setUint32(base + 8, pngBuffers[i].byteLength, true);
+    dv.setUint32(base + 12, offsets[i], true);
+  }
+
+  const blob = new Blob([header, dirBuf, ...pngBuffers], { type: "image/x-icon" });
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = (e) => res(e.target!.result as string);
+    reader.onerror = rej;
+    reader.readAsDataURL(blob);
+  });
+  return { blob, dataUrl };
+}
 
 interface Recommendation { format: OutputFormat; quality: number; label: string; }
 interface ConvertResult  { dataUrl: string; blob: Blob; size: number; }
@@ -50,7 +124,9 @@ function formatBytes(n: number): string {
 }
 
 function getExt(fmt: OutputFormat): string {
-  return fmt === "image/jpeg" ? "jpg" : fmt.split("/")[1];
+  if (fmt === "image/jpeg")   return "jpg";
+  if (fmt === "image/x-icon") return "ico";
+  return fmt.split("/")[1];
 }
 
 function isHeic(file: File): boolean {
@@ -75,7 +151,14 @@ async function processImage(
   format: OutputFormat,
   quality: number,
   resize: ResizeSettings,
+  icoSizes: IcoSize[] = [16, 32, 48, 256],
 ): Promise<ConvertResult> {
+  // ICO: use dedicated encoder
+  if (format === "image/x-icon") {
+    const { blob, dataUrl } = await buildIco(file, icoSizes);
+    return { dataUrl, blob, size: blob.size };
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -292,6 +375,8 @@ function ImageCard({ item, isSelected, onSelect, onRemove }: {
 
 // ── Main Page ──────────────────────────────────────────────────────
 
+// ── Main Page ──────────────────────────────────────────────────────
+
 export default function ImageConverterPage() {
   const [tab, setTab] = useState<TabMode>("convert");
 
@@ -303,6 +388,7 @@ export default function ImageConverterPage() {
   const [resize, setResize]         = useState<ResizeSettings>({
     enabled: false, width: "", height: "", maintainAspect: true,
   });
+  const [icoSizes, setIcoSizes]     = useState<Set<IcoSize>>(new Set([16, 32, 48, 256]));
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress]         = useState(0);
   const [isDragOver, setIsDragOver]     = useState(false);
@@ -357,11 +443,12 @@ export default function ImageConverterPage() {
     const targets = items.filter((i) => i.status === "idle");
     if (!targets.length) return;
     setIsProcessing(true); setProgress(0);
+    const sortedIcoSizes = [...icoSizes].sort((a, b) => a - b) as IcoSize[];
     for (let i = 0; i < targets.length; i++) {
       const item = targets[i];
       setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, status: "processing" } : x));
       try {
-        const result = await processImage(item.file, format, quality, resize);
+        const result = await processImage(item.file, format, quality, resize, sortedIcoSizes);
         setItems((prev) => prev.map((x) => x.id === item.id ? { ...x, status: "done", result } : x));
         setSelectedId(item.id);
       } catch {
@@ -370,7 +457,7 @@ export default function ImageConverterPage() {
       setProgress(Math.round(((i + 1) / targets.length) * 100));
     }
     setIsProcessing(false);
-  }, [items, format, quality, resize]);
+  }, [items, format, quality, resize, icoSizes]);
 
   const handleDownloadSingle = useCallback((item: ImageItem) => {
     if (!item.result) return;
@@ -526,15 +613,20 @@ export default function ImageConverterPage() {
                   {/* Output format */}
                   <div>
                     <p className="mb-2 text-xs font-medium text-text-secondary">출력 포맷</p>
-                    <div className="flex gap-2">
-                      {(["image/jpeg", "image/webp", "image/png"] as OutputFormat[]).map((f) => (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {([
+                        { fmt: "image/jpeg",   label: "JPEG" },
+                        { fmt: "image/webp",   label: "WebP" },
+                        { fmt: "image/png",    label: "PNG"  },
+                        { fmt: "image/x-icon", label: "ICO"  },
+                      ] as { fmt: OutputFormat; label: string }[]).map(({ fmt: f, label }) => (
                         <button key={f} type="button" onClick={() => setFormat(f)}
-                          className={`flex-1 rounded-lg py-2 text-xs font-semibold uppercase transition-colors ${
+                          className={`flex-1 min-w-[52px] rounded-lg py-2 text-xs font-semibold uppercase transition-colors ${
                             format === f
                               ? "bg-brand text-bg-primary"
                               : "border border-border text-text-secondary hover:border-brand/50 hover:text-text-primary"
                           }`}>
-                          {f === "image/jpeg" ? "JPEG" : f.split("/")[1]}
+                          {label}
                         </button>
                       ))}
                     </div>
@@ -543,57 +635,94 @@ export default function ImageConverterPage() {
                     {format === "image/png" && (
                       <p className="mt-1.5 text-xs text-text-secondary">PNG는 무손실 포맷으로 품질 설정이 적용되지 않습니다.</p>
                     )}
+                    {format === "image/x-icon" && (
+                      <p className="mt-1.5 text-xs text-brand">ICO는 복수 크기를 하나의 파일에 포함합니다. 품질·리사이즈 설정은 적용되지 않습니다.</p>
+                    )}
                   </div>
 
-                  {/* Quality */}
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-medium text-text-secondary">품질</p>
-                      <span className="font-mono text-xs font-semibold text-text-primary">{quality}%</span>
+                  {/* Quality — ICO일 때 숨김 */}
+                  {format !== "image/x-icon" ? (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-xs font-medium text-text-secondary">품질</p>
+                        <span className="font-mono text-xs font-semibold text-text-primary">{quality}%</span>
+                      </div>
+                      <input type="range" min={10} max={100} value={quality}
+                        onChange={(e) => setQuality(parseInt(e.target.value))}
+                        disabled={format === "image/png"}
+                        className="w-full accent-brand" />
+                      <div className="mt-1 flex justify-between text-xs text-text-secondary">
+                        <span>10 (최소)</span><span>100 (최고)</span>
+                      </div>
                     </div>
-                    <input type="range" min={10} max={100} value={quality}
-                      onChange={(e) => setQuality(parseInt(e.target.value))}
-                      disabled={format === "image/png"}
-                      className="w-full accent-brand" />
-                    <div className="mt-1 flex justify-between text-xs text-text-secondary">
-                      <span>10 (최소)</span><span>100 (최고)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Resize */}
-                <div>
-                  <button type="button"
-                    onClick={() => setResize((r) => ({ ...r, enabled: !r.enabled }))}
-                    className="flex items-center gap-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary">
-                    <Maximize2 size={13} />
-                    리사이즈 {resize.enabled ? "▲ 숨기기" : "▼ 설정"}
-                  </button>
-                  {resize.enabled && (
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      {(["width", "height"] as const).map((key, idx) => (
-                        <div key={key} className="flex items-center gap-2">
-                          {idx === 1 && <span className="text-xs text-text-secondary">×</span>}
-                          <span className="text-xs text-text-secondary">{key === "width" ? "W" : "H"}</span>
-                          <input type="number" min={1} placeholder="px"
-                            value={resize[key]}
-                            onChange={(e) => setResize((r) => ({ ...r, [key]: e.target.value }))}
-                            className="w-20 rounded-lg border border-border bg-bg-primary px-2 py-1.5 text-xs text-text-primary focus:border-brand focus:outline-none"
-                          />
-                        </div>
-                      ))}
-                      <button type="button"
-                        onClick={() => setResize((r) => ({ ...r, maintainAspect: !r.maintainAspect }))}
-                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                          resize.maintainAspect
-                            ? "border-brand/40 bg-brand/10 text-brand"
-                            : "border-border text-text-secondary hover:border-brand/50"
-                        }`}>
-                        {resize.maintainAspect && <Check size={11} />}비율 유지
-                      </button>
+                  ) : (
+                    /* ICO 크기 선택 */
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-text-secondary">포함할 크기 (복수 선택)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ICO_SIZES.map((s) => {
+                          const active = icoSizes.has(s);
+                          return (
+                            <button key={s} type="button"
+                              onClick={() => setIcoSizes((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(s)) { if (next.size > 1) next.delete(s); }
+                                else next.add(s);
+                                return next;
+                              })}
+                              className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                                active
+                                  ? "border-brand bg-brand/10 text-brand"
+                                  : "border-border text-text-secondary hover:border-brand/40 hover:text-brand"
+                              }`}>
+                              {active && <Check size={10} />}
+                              {s}px
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-text-secondary">
+                        선택: {[...icoSizes].sort((a, b) => a - b).join(", ")}px
+                      </p>
                     </div>
                   )}
                 </div>
+
+                {/* Resize — ICO일 때 숨김 */}
+                {format !== "image/x-icon" && (
+                  <div>
+                    <button type="button"
+                      onClick={() => setResize((r) => ({ ...r, enabled: !r.enabled }))}
+                      className="flex items-center gap-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary">
+                      <Maximize2 size={13} />
+                      리사이즈 {resize.enabled ? "▲ 숨기기" : "▼ 설정"}
+                    </button>
+                    {resize.enabled && (
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {(["width", "height"] as const).map((key, idx) => (
+                          <div key={key} className="flex items-center gap-2">
+                            {idx === 1 && <span className="text-xs text-text-secondary">×</span>}
+                            <span className="text-xs text-text-secondary">{key === "width" ? "W" : "H"}</span>
+                            <input type="number" min={1} placeholder="px"
+                              value={resize[key]}
+                              onChange={(e) => setResize((r) => ({ ...r, [key]: e.target.value }))}
+                              className="w-20 rounded-lg border border-border bg-bg-primary px-2 py-1.5 text-xs text-text-primary focus:border-brand focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                        <button type="button"
+                          onClick={() => setResize((r) => ({ ...r, maintainAspect: !r.maintainAspect }))}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                            resize.maintainAspect
+                              ? "border-brand/40 bg-brand/10 text-brand"
+                              : "border-border text-text-secondary hover:border-brand/50"
+                          }`}>
+                          {resize.maintainAspect && <Check size={11} />}비율 유지
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -663,7 +792,7 @@ export default function ImageConverterPage() {
                 <Info size={15} className="text-brand" aria-hidden="true" />
                 <h2 className="text-sm font-semibold text-text-primary">지원 포맷 및 안내</h2>
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <p className="mb-1.5 text-xs font-semibold text-text-primary">입력 포맷</p>
                   <ul className="space-y-1 text-xs text-text-secondary">
@@ -679,10 +808,11 @@ export default function ImageConverterPage() {
                     <li><strong className="text-text-primary">JPEG</strong> — 사진·배경 흰색 처리, 손실 압축</li>
                     <li><strong className="text-text-primary">WebP</strong> — 투명도+높은 압축률, 최신 웹 표준</li>
                     <li><strong className="text-text-primary">PNG</strong> — 무손실, 투명 배경 유지</li>
+                    <li><strong className="text-text-primary">ICO</strong> — 복수 크기 포함 아이콘 파일</li>
                   </ul>
                 </div>
                 <div>
-                  <p className="mb-1.5 text-xs font-semibold text-text-primary">권장 품질</p>
+                  <p className="mb-1.5 text-xs font-semibold text-text-primary">권장 품질 (JPEG/WebP)</p>
                   <ul className="space-y-1 text-xs text-text-secondary">
                     <li>웹 이미지: 70 ~ 85 적합</li>
                     <li>고화질 보존: 90 이상 권장</li>
@@ -690,12 +820,20 @@ export default function ImageConverterPage() {
                     <li>브라우저 로컬 처리 (서버 미전송)</li>
                   </ul>
                 </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold text-text-primary">ICO 권장 크기</p>
+                  <ul className="space-y-1 text-xs text-text-secondary">
+                    <li><strong className="text-text-primary">16×16</strong> — 브라우저 파비콘</li>
+                    <li><strong className="text-text-primary">32×32</strong> — 탭·바탕화면 아이콘</li>
+                    <li><strong className="text-text-primary">48×48</strong> — Windows 시스템 아이콘</li>
+                    <li><strong className="text-text-primary">256×256</strong> — 고해상도 디스플레이</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </>
         )}
 
-        {/* ══════════════ 배경 제거 탭 ══════════════ */}
         {tab === "bg-remove" && (
           <div className="flex flex-col gap-5">
             {/* Upload */}

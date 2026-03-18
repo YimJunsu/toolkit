@@ -436,25 +436,12 @@ export const JOBS_TOOLS: ToolItem[] = [
     icon: Ruler,
   },
   {
-    id: "tax-calculator",
-    label: "세금 계산기",
-    description: "근로소득세 · VAT · 양도소득세 · 프리랜서 3.3%를 탭으로 전환하며 계산",
-    href: "/tools/jobs/tax-calculator",
+    id: "finance-calculator",
+    label: "회계 계산기",
+    description: "세금 계산 · 단가 변환 · 퇴직금 산정 · 직장인·프리랜서·자영업자 통합 재무 도구",
+    href: "/tools/jobs/finance-calculator",
     icon: Calculator,
-  },
-  {
-    id: "hourly-salary",
-    label: "단가 변환기",
-    description: "시급 · 일급 · 주급 · 월급 · 연봉 즉시 상호 환산 · 외주 계약 단가 비교",
-    href: "/tools/jobs/hourly-salary",
-    icon: Repeat2,
-  },
-  {
-    id: "severance",
-    label: "퇴직금 계산기",
-    description: "2026년 고용노동부 기준 재직기간·평균임금으로 퇴직금 즉시 산정",
-    href: "/tools/jobs/severance",
-    icon: Building2,
+    badge: "NEW",
   },
 ];
 

@@ -342,13 +342,13 @@ function TrackMesh({ numLanes, map, lanePositions }: {
 function ForestBackground({ trackWidth }: { trackWidth: number }) {
   const trunkRef  = useRef<THREE.InstancedMesh>(null);
   const canopyRef = useRef<THREE.InstancedMesh>(null);
-  const COUNT     = 24;
+  const COUNT     = 40;
 
   const positions = useMemo(() => {
     const half = trackWidth / 2 + 0.45 + 0.35; // 배리어 바깥
     return Array.from({ length: COUNT }, (_, i) => ({
       x:     (i % 2 === 0 ? -1 : 1) * (half + 2.5 + Math.random() * 8),
-      z:    -5 - (i / COUNT) * (RACE_LENGTH - 10) + Math.random() * 6,
+      z:    -3 - (i / COUNT) * (RACE_LENGTH + 25) + Math.random() * 5,
       scale: 0.8 + Math.random() * 0.7,
     }));
   }, [trackWidth]);
@@ -372,11 +372,11 @@ function ForestBackground({ trackWidth }: { trackWidth: number }) {
 
   return (
     <>
-      <instancedMesh ref={trunkRef} args={[undefined, undefined, COUNT]}>
+      <instancedMesh ref={trunkRef} args={[undefined, undefined, COUNT]} frustumCulled={false}>
         <cylinderGeometry args={[0.15, 0.22, 1.6, 6]} />
         <meshStandardMaterial color="#5a3020" roughness={0.9} />
       </instancedMesh>
-      <instancedMesh ref={canopyRef} args={[undefined, undefined, COUNT]}>
+      <instancedMesh ref={canopyRef} args={[undefined, undefined, COUNT]} frustumCulled={false}>
         <sphereGeometry args={[1.05, 7, 7]} />
         <meshStandardMaterial color="#1a6b1a" roughness={0.85} />
       </instancedMesh>
@@ -390,13 +390,13 @@ function ForestBackground({ trackWidth }: { trackWidth: number }) {
 function DesertBackground({ trackWidth }: { trackWidth: number }) {
   const bodyRef = useRef<THREE.InstancedMesh>(null);
   const armRef  = useRef<THREE.InstancedMesh>(null);
-  const COUNT   = 20;
+  const COUNT   = 32;
 
   const positions = useMemo(() => {
     const half = trackWidth / 2 + 0.45 + 0.35;
     return Array.from({ length: COUNT }, (_, i) => ({
       x:     (i % 2 === 0 ? -1 : 1) * (half + 2.5 + Math.random() * 8),
-      z:    -5 - (i / COUNT) * (RACE_LENGTH - 10) + Math.random() * 6,
+      z:    -3 - (i / COUNT) * (RACE_LENGTH + 25) + Math.random() * 5,
       scale: 0.7 + Math.random() * 0.8,
     }));
   }, [trackWidth]);
@@ -421,11 +421,11 @@ function DesertBackground({ trackWidth }: { trackWidth: number }) {
 
   return (
     <>
-      <instancedMesh ref={bodyRef} args={[undefined, undefined, COUNT]}>
+      <instancedMesh ref={bodyRef} args={[undefined, undefined, COUNT]} frustumCulled={false}>
         <cylinderGeometry args={[0.18, 0.22, 2.2, 6]} />
         <meshStandardMaterial color="#3a7a3a" roughness={0.8} />
       </instancedMesh>
-      <instancedMesh ref={armRef} args={[undefined, undefined, COUNT]}>
+      <instancedMesh ref={armRef} args={[undefined, undefined, COUNT]} frustumCulled={false}>
         <cylinderGeometry args={[0.1, 0.1, 0.9, 6]} />
         <meshStandardMaterial color="#3a7a3a" roughness={0.8} />
       </instancedMesh>
@@ -455,7 +455,7 @@ function ObstaclesInstanced({ obstacles }: { obstacles: Obstacle[] }) {
   }, [obstacles]);
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, obstacles.length]}>
+    <instancedMesh ref={ref} args={[undefined, undefined, obstacles.length]} frustumCulled={false}>
       <boxGeometry args={[1.1, 0.55, 1.1]} />
       <meshStandardMaterial metalness={0.2} roughness={0.5} />
     </instancedMesh>
@@ -492,12 +492,13 @@ function CameraController({ animalsRef, trackWidth }: {
 // ═══════════════════════════════════════════════════════════════════════════════
 // RaceSceneContent – Canvas 내부 씬 전체
 // ═══════════════════════════════════════════════════════════════════════════════
-function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds }: {
+function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds, isCountingDown }: {
   players: Player[];
   map: MapType;
   onFinish: (ids: number[]) => void;
   onUpdateRankings: (r: RankEntry[]) => void;
   sounds: ReturnType<typeof useSounds>;
+  isCountingDown: boolean;
 }) {
   const numLanes   = players.length;
   const trackWidth = numLanes * LANE_WIDTH;
@@ -536,12 +537,9 @@ function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds }: 
   const raceFinishedRef = useRef(false);
   const rankTimerRef    = useRef(0);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { sounds.playStart(); }, []);
-
   // ── 메인 레이스 루프 ──────────────────────────────────────────────────────
   useFrame((_, delta) => {
-    if (raceFinishedRef.current) return;
+    if (raceFinishedRef.current || isCountingDown) return;
     const dt      = Math.min(delta, 0.05);
     const animals = animalsRef.current;
 
@@ -639,8 +637,31 @@ function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds }: 
 // AnimalRaceScene – 메인 내보내기
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function AnimalRaceScene({ players, map, onFinish }: Props) {
-  const [rankList, setRankList] = useState<RankEntry[]>([]);
+  const [rankList, setRankList]   = useState<RankEntry[]>([]);
+  const [countdown, setCountdown] = useState<number | "GO" | null>(3);
   const sounds = useSounds();
+
+  // 카운트다운: 3 → 2 → 1 → GO! → null (레이스 시작)
+  useEffect(() => {
+    let step = 3;
+    const tick = () => {
+      step--;
+      if (step > 0) {
+        setCountdown(step);
+        setTimeout(tick, 1000);
+      } else if (step === 0) {
+        setCountdown("GO");
+        setTimeout(() => setCountdown(null), 800);
+      }
+    };
+    const id = setTimeout(tick, 1000);
+    return () => clearTimeout(id);
+  }, []);
+
+  // GO! 타이밍에 출발 사운드 재생
+  useEffect(() => {
+    if (countdown === "GO") sounds.playStart();
+  }, [countdown, sounds]);
 
   const idToIndex = useMemo(() => {
     const m = new Map<number, number>();
@@ -653,6 +674,12 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
   const trackWidth = players.length * LANE_WIDTH;
   // 초기 카메라: 오른쪽(+X) 배치, Z=0 (출발선), 왼쪽 바라봄
   const initCamX   = trackWidth / 2 + 14;
+
+  // 카운트다운 숫자별 색상
+  const countdownColor = countdown === "GO" ? "#00ff88"
+    : countdown === 1 ? "#88ee44"
+    : countdown === 2 ? "#ffbb00"
+    : "#ff4444";
 
   return (
     <div className="relative w-full">
@@ -683,11 +710,44 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
           onFinish={onFinish}
           onUpdateRankings={handleUpdateRankings}
           sounds={sounds}
+          isCountingDown={countdown !== null}
         />
 
         {/* Bloom 포스트 프로세싱 제거 → FBO 렌더 타겟 메모리 누수 원천 차단
             대신 부스트존·결승선 emissiveIntensity를 높여 동일 효과 */}
       </Canvas>
+
+      {/* ── 카운트다운 오버레이 ──────────────────────────────────────────── */}
+      {countdown !== null && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center"
+          style={{ borderRadius: "16px" }}>
+          {/* 반투명 어두운 배경 */}
+          <div className="absolute inset-0 bg-black/40" style={{ borderRadius: "16px" }} />
+          {/* 카운트다운 숫자 */}
+          <span
+            key={String(countdown)}
+            style={{
+              position: "relative",
+              fontSize: "160px",
+              fontWeight: 900,
+              fontFamily: "sans-serif",
+              lineHeight: 1,
+              color: countdownColor,
+              textShadow: "0 0 40px rgba(0,0,0,0.9), 0 0 80px rgba(0,0,0,0.6)",
+              animation: "countdownPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards",
+              userSelect: "none",
+            }}
+          >
+            {countdown}
+          </span>
+          <style>{`
+            @keyframes countdownPop {
+              from { transform: scale(2.0); opacity: 0; }
+              to   { transform: scale(1.0); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* ── 실시간 순위 HUD ─────────────────────────────────────────────── */}
       <div className="absolute top-3 right-3 min-w-[185px] rounded-xl border border-white/20

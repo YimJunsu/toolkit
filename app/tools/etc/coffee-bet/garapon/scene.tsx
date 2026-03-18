@@ -6,7 +6,6 @@ import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DisposeOnUnmount – Canvas 언마운트 시 GPU 리소스 완전 해제
-// Context Lost 방지 핵심: geometry/material/renderList 모두 dispose
 // ─────────────────────────────────────────────────────────────────────────────
 function DisposeOnUnmount() {
   const { gl, scene } = useThree();
@@ -37,6 +36,7 @@ function DisposeOnUnmount() {
 
   return null;
 }
+
 import type { ThreeEvent } from "@react-three/fiber";
 import type { Player } from "./page";
 
@@ -46,6 +46,7 @@ import type { Player } from "./page";
 interface Props {
   players: Player[];
   onResult: (loserId: number) => void;
+  targetPlayerId?: number; // 지정된 경우 해당 플레이어의 공이 배출됨
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +56,12 @@ const BALL_COLORS = [
   "#ff3333", "#3399ff", "#33dd55", "#ffaa00",
   "#ff44cc", "#00eeff", "#ff7700", "#9955ff",
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 회전 트리거 & 서스펜스 설정
+// ─────────────────────────────────────────────────────────────────────────────
+const TRIGGER_ROT      = Math.PI * 6;   // 3바퀴 (기존 2바퀴 → 증가)
+const SUSPENSE_DURATION = 1.8;           // 공 배출 전 긴장감 지속 시간(초)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Web Audio API 사운드 헬퍼
@@ -67,13 +74,14 @@ function makeAudioCtx(): AudioContext | null {
   } catch { return null; }
 }
 
-// 래칫 틱 (30도마다)
-function playRatchet(ctx: AudioContext) {
+// 래칫 틱 – 진행도에 따라 음조 상승
+function playRatchet(ctx: AudioContext, intensity = 0) {
   const osc = ctx.createOscillator(), g = ctx.createGain();
   osc.connect(g); g.connect(ctx.destination);
-  osc.frequency.setValueAtTime(400, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.05);
-  g.gain.setValueAtTime(0.18, ctx.currentTime);
+  const baseFreq = 350 + intensity * 200;
+  osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.05);
+  g.gain.setValueAtTime(0.15 + intensity * 0.1, ctx.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
   osc.start(); osc.stop(ctx.currentTime + 0.07);
 }
@@ -103,17 +111,52 @@ function playReveal(ctx: AudioContext) {
   });
 }
 
+// 드럼롤 한 타 (서스펜스 중 점점 빨라짐)
+function playDrumrollHit(ctx: AudioContext, intensity: number) {
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.connect(g); g.connect(ctx.destination);
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(70 + intensity * 40, ctx.currentTime);
+  g.gain.setValueAtTime(0.18 + intensity * 0.12, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.055);
+  osc.start(); osc.stop(ctx.currentTime + 0.055);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CameraController – 모바일 여부에 따라 카메라 위치·FOV 실시간 조정
+// ─────────────────────────────────────────────────────────────────────────────
+function CameraController({ isMobile }: { isMobile: boolean }) {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera;
+    if (isMobile) {
+      // 오른쪽으로 이동: 핸들(x≈3.8)이 화면에 들어오도록
+      camera.position.set(1.5, 0.8, 7);
+      cam.fov = 62;
+    } else {
+      camera.position.set(0, 1.2, 8);
+      cam.fov = 52;
+    }
+    cam.updateProjectionMatrix();
+  }, [camera, isMobile]);
+
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MachineScene – Canvas 내부 컴포넌트
-// useThree 접근 + 3D 기계 메시 + 원형 핸들 인터랙션
 // ─────────────────────────────────────────────────────────────────────────────
 interface MachineSceneProps {
   players: Player[];
   onResult: (loserId: number) => void;
   onProgressUpdate: (pct: number) => void;
+  onSuspenseChange: (active: boolean) => void;
+  isMobile: boolean;
+  targetPlayerId?: number;
 }
 
-function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps) {
+function MachineScene({ players, onResult, onProgressUpdate, onSuspenseChange, isMobile, targetPlayerId }: MachineSceneProps) {
   const { camera, gl } = useThree();
 
   // ── Refs ──────────────────────────────────────────────────────────────────
@@ -121,18 +164,22 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
   const ballRefs         = useRef<(THREE.Mesh | null)[]>([]);
   const ballBasePos      = useRef<THREE.Vector3[]>([]);
 
-  // ── 인터랙션 상태 refs (React state 아님 → 성능) ───────────────────────────
+  // ── 인터랙션 상태 refs ────────────────────────────────────────────────────
   const isDragging       = useRef(false);
-  const lastAngle        = useRef<number | null>(null);  // null = 드래그 안 함
-  const totalRotation    = useRef(0);                    // 누적 회전(라디안)
+  const lastAngle        = useRef<number | null>(null);
+  const totalRotation    = useRef(0);
   const lastRatchetAngle = useRef(0);
-  const TRIGGER_ROT      = Math.PI * 4;                  // 2바퀴 트리거
 
   // ── 배출 애니메이션 상태 refs ─────────────────────────────────────────────
   const ballReleased     = useRef(false);
   const loserIndex       = useRef(-1);
   const releaseProgress  = useRef(0);
   const resultCalled     = useRef(false);
+
+  // ── 서스펜스 페이즈 refs (NEW) ─────────────────────────────────────────────
+  const suspenseActive   = useRef(false);
+  const suspenseTimer    = useRef(0);
+  const drumrollTimer    = useRef(0);
 
   // ── AudioContext ref ───────────────────────────────────────────────────────
   const audioCtx = useRef<AudioContext | null>(null);
@@ -141,10 +188,9 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
   useEffect(() => {
     const positions: THREE.Vector3[] = [];
     for (let i = 0; i < players.length; i++) {
-      // 돔 중심 (0, 2.0, 0) 반경 1.2 구 내부에 랜덤 배치
       const r     = 0.4 + Math.random() * 0.8;
       const theta = Math.random() * Math.PI * 2;
-      const phi   = Math.acos(2 * Math.random() - 1); // 균일 구면 분포
+      const phi   = Math.acos(2 * Math.random() - 1);
       positions.push(new THREE.Vector3(
         r * Math.sin(phi) * Math.cos(theta),
         2.0 + r * Math.cos(phi) * 0.65,
@@ -152,18 +198,20 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
       ));
     }
     ballBasePos.current = positions;
-    loserIndex.current  = Math.floor(Math.random() * players.length);
-  }, [players]);
+    if (targetPlayerId !== undefined) {
+      const idx = players.findIndex(p => p.id === targetPlayerId);
+      loserIndex.current = idx >= 0 ? idx : Math.floor(Math.random() * players.length);
+    } else {
+      loserIndex.current = Math.floor(Math.random() * players.length);
+    }
+  }, [players, targetPlayerId]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 원형 드래그 핵심 함수:
-  // 화면 좌표(clientX/Y) → 피벗 기준 각도 계산 → 핸들 회전 적용
+  // 원형 드래그: 피벗 기준 각도 계산
   // ─────────────────────────────────────────────────────────────────────────
   const calcPivotScreen = useCallback((): { px: number; py: number } | null => {
     const canvas = gl.domElement;
     const rect   = canvas.getBoundingClientRect();
-
-    // 피벗 월드 좌표 (2.3, 0, 0) → NDC → 화면 픽셀 좌표
     const pivot  = new THREE.Vector3(2.3, 0, 0).project(camera);
     return {
       px: (pivot.x *  0.5 + 0.5) * rect.width  + rect.left,
@@ -172,60 +220,59 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
   }, [camera, gl]);
 
   const applyDrag = useCallback((clientX: number, clientY: number) => {
-    if (!isDragging.current || ballReleased.current) return;
+    if (!isDragging.current || ballReleased.current || suspenseActive.current) return;
 
     const ps = calcPivotScreen();
     if (!ps) return;
 
-    // atan2로 피벗 기준 각도 계산 (마우스 방향)
     const newAngle = Math.atan2(clientY - ps.py, clientX - ps.px);
 
     if (lastAngle.current !== null) {
-      // 각도 차이 계산 (wrap-around 보정 → [-π, π])
       let delta = newAngle - lastAngle.current;
       if (delta >  Math.PI) delta -= Math.PI * 2;
       if (delta < -Math.PI) delta += Math.PI * 2;
 
-      // 핸들 그룹 Z축 회전 (피벗에서 원형으로 회전)
       if (handleGroupRef.current) {
         handleGroupRef.current.rotation.z += delta;
       }
 
-      // 누적 회전량 (절대값) 추적
       totalRotation.current += Math.abs(delta);
 
-      // 진행도 퍼센트 업데이트
       const pct = Math.min((totalRotation.current / TRIGGER_ROT) * 100, 100);
       onProgressUpdate(pct);
 
-      // 래칫 클릭 (π/6 = 30도 마다)
+      // 래칫 클릭 – 진행도에 따라 음조 변화
       const ratchetInterval = Math.PI / 6;
       if (totalRotation.current - lastRatchetAngle.current >= ratchetInterval) {
         lastRatchetAngle.current = totalRotation.current;
-        if (audioCtx.current) playRatchet(audioCtx.current);
+        const intensity = Math.min(totalRotation.current / TRIGGER_ROT, 1);
+        if (audioCtx.current) playRatchet(audioCtx.current, intensity);
       }
 
-      // 2바퀴 달성 → 공 배출 트리거
-      if (totalRotation.current >= TRIGGER_ROT && !ballReleased.current) {
-        ballReleased.current = true;
-        isDragging.current   = false;
-        lastAngle.current    = null;
+      // 3바퀴 달성 → 서스펜스 페이즈 시작
+      if (totalRotation.current >= TRIGGER_ROT && !suspenseActive.current && !ballReleased.current) {
+        suspenseActive.current = true;
+        suspenseTimer.current  = 0;
+        drumrollTimer.current  = 0;
+        isDragging.current     = false;
+        lastAngle.current      = null;
+        onSuspenseChange(true);
         if (audioCtx.current) playRelease(audioCtx.current);
       }
     }
 
     lastAngle.current = newAngle;
-  }, [calcPivotScreen, onProgressUpdate]);
+  }, [calcPivotScreen, onProgressUpdate, onSuspenseChange]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 포인터 다운 (r3f 이벤트 – 노브 메시에 연결)
+  // 포인터 다운
   // ─────────────────────────────────────────────────────────────────────────
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
+    if (ballReleased.current || suspenseActive.current) return;
     isDragging.current = true;
-    lastAngle.current  = null; // 각도를 다음 move에서 초기화
+    lastAngle.current  = null;
 
-    // 첫 상호작용 시 AudioContext 활성화 (브라우저 정책)
     if (!audioCtx.current) {
       audioCtx.current = makeAudioCtx();
     }
@@ -256,46 +303,87 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
     };
   }, [applyDrag]);
 
-  // 트레이 목표 위치 (공이 최종적으로 도달할 곳)
   const trayTarget = useMemo(() => new THREE.Vector3(0, -1.75, 2.2), []);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // useFrame: 공 부유 애니메이션 + 배출 공 이동
+  // useFrame: 서스펜스 + 공 부유 + 배출 애니메이션
   // ─────────────────────────────────────────────────────────────────────────
   useFrame((state, delta) => {
     const time = state.clock.elapsedTime;
 
+    // === 서스펜스 페이즈: 모든 공 격렬히 흔들기 + 드럼롤 ===
+    if (suspenseActive.current && !ballReleased.current) {
+      suspenseTimer.current += delta;
+      drumrollTimer.current += delta;
+
+      const pct = Math.min(suspenseTimer.current / SUSPENSE_DURATION, 1);
+      // 드럼롤 간격: 0.12s → 0.04s (점점 빠르게)
+      const interval = Math.max(0.04, 0.12 - pct * 0.08);
+
+      if (drumrollTimer.current >= interval) {
+        drumrollTimer.current = 0;
+        if (audioCtx.current) playDrumrollHit(audioCtx.current, pct);
+      }
+
+      // 공 격렬 진동
+      ballRefs.current.forEach((mesh, i) => {
+        if (!mesh) return;
+        const base = ballBasePos.current[i];
+        if (!base) return;
+        const s = 0.08 + pct * 0.45;
+        mesh.position.set(
+          base.x + (Math.random() - 0.5) * s,
+          base.y + (Math.random() - 0.5) * s,
+          base.z + (Math.random() - 0.5) * s,
+        );
+      });
+
+      if (suspenseTimer.current >= SUSPENSE_DURATION) {
+        suspenseActive.current = false;
+        ballReleased.current   = true;
+        onSuspenseChange(false);
+        if (audioCtx.current) playReveal(audioCtx.current);
+      }
+      return;
+    }
+
+    // === 일반 부유 (진행도에 따라 강도 증가) ===
     ballRefs.current.forEach((mesh, i) => {
       if (!mesh) return;
       const base = ballBasePos.current[i];
       if (!base) return;
 
-      // 배출된 공이면 별도 처리
       if (ballReleased.current && i === loserIndex.current) return;
+      if (ballReleased.current) {
+        // 배출 후: 나머지 공은 제자리 정지
+        mesh.position.set(base.x, base.y, base.z);
+        return;
+      }
 
-      // 배출 전: 구 내부에서 둥둥 떠다님 (각 공마다 다른 주파수/위상)
-      const intensity = ballReleased.current ? 0 : 1;
+      // 진행도 기반 진동 강도 (0% → 1x, 100% → 3.5x)
+      const progressFactor = Math.min(totalRotation.current / TRIGGER_ROT, 1);
+      const freq = 1 + progressFactor * 2.5;
+      const amp  = 0.09 + progressFactor * 0.18;
+
       mesh.position.set(
-        base.x + Math.sin(time * 0.9 + i * 1.7) * 0.09 * intensity,
-        base.y + Math.cos(time * 0.7 + i * 1.1) * 0.11 * intensity,
-        base.z + Math.sin(time * 0.8 + i * 1.3) * 0.09 * intensity,
+        base.x + Math.sin(time * 0.9 * freq + i * 1.7) * amp,
+        base.y + Math.cos(time * 0.7 * freq + i * 1.1) * amp * 1.22,
+        base.z + Math.sin(time * 0.8 * freq + i * 1.3) * amp,
       );
     });
 
-    // 배출 공 이동 애니메이션 (1.5초 동안 트레이로 이동)
+    // === 배출 공 이동 애니메이션 (1.5초 트레이로) ===
     if (ballReleased.current && loserIndex.current >= 0 && !resultCalled.current) {
       const mesh = ballRefs.current[loserIndex.current];
       if (mesh) {
         releaseProgress.current = Math.min(releaseProgress.current + delta / 1.5, 1);
 
-        // easeOutBounce로 자연스럽게 떨어지는 효과
-        const t = releaseProgress.current;
+        const t     = releaseProgress.current;
         const eased = t < 1 ? 1 - Math.pow(1 - t, 3) : 1;
         mesh.position.lerpVectors(ballBasePos.current[loserIndex.current] ?? trayTarget, trayTarget, eased);
 
         if (releaseProgress.current >= 1) {
           resultCalled.current = true;
-          if (audioCtx.current) playReveal(audioCtx.current);
           const loserId = players[loserIndex.current]?.id ?? players[0].id;
           onResult(loserId);
         }
@@ -304,35 +392,30 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
   });
 
   // ── 머신 외관 재질 헬퍼 ────────────────────────────────────────────────────
-  const metalGray    = <meshStandardMaterial color="#b8b8c4" metalness={0.75} roughness={0.25} />;
-  const metalDark    = <meshStandardMaterial color="#888898" metalness={0.8}  roughness={0.2}  />;
-  const metalGold    = <meshStandardMaterial color="#c8a030" metalness={0.85} roughness={0.15} />;
-  const metalRed     = <meshStandardMaterial color="#cc2800" metalness={0.6}  roughness={0.3}  />;
-  const metalRedBright = <meshStandardMaterial color="#ff4422" metalness={0.4} roughness={0.45} />;
+  const metalGray      = <meshStandardMaterial color="#b8b8c4" metalness={0.75} roughness={0.25} />;
+  const metalDark      = <meshStandardMaterial color="#888898" metalness={0.8}  roughness={0.2}  />;
+  const metalGold      = <meshStandardMaterial color="#c8a030" metalness={0.85} roughness={0.15} />;
+  const metalRed       = <meshStandardMaterial color="#cc2800" metalness={0.6}  roughness={0.3}  />;
+  const metalRedBright = <meshStandardMaterial color="#ff4422" metalness={0.4}  roughness={0.45} />;
 
   return (
     <>
-      {/* ★ GPU 리소스 완전 해제 (Context Lost 방지) */}
       <DisposeOnUnmount />
 
-      {/* ── 조명 설정 ─────────────────────────────────────────────────────── */}
-      {/* 상단 스팟라이트: 기계에 드라마틱한 하이라이트 */}
+      {/* ── 조명 ─────────────────────────────────────────────────────────── */}
       <spotLight position={[0, 10, 4]} intensity={3} angle={0.4} penumbra={0.5}
         castShadow target-position={[0, 0, 0]} />
-      {/* 왼쪽 필 라이트: 부드러운 파란색 림 라이팅 */}
       <pointLight position={[-6, 3, 3]} intensity={1.2} color="#4466ff" />
-      {/* 오른쪽 보조광 */}
       <pointLight position={[6, 4, -2]} intensity={0.8} color="#ffeecc" />
-      {/* 전체 앰비언트 */}
       <ambientLight intensity={0.35} />
 
-      {/* ── 바닥 플레인 (그림자 받음) ─────────────────────────────────────── */}
+      {/* ── 바닥 ─────────────────────────────────────────────────────────── */}
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.6, 0]}>
         <circleGeometry args={[5, 48]} />
         <meshStandardMaterial color="#111122" metalness={0.3} roughness={0.6} />
       </mesh>
 
-      {/* ── 발 4개 (앞뒤 좌우) ───────────────────────────────────────────── */}
+      {/* ── 발 4개 ───────────────────────────────────────────────────────── */}
       {([[-0.9, 0.8], [0.9, 0.8], [-0.9, -0.8], [0.9, -0.8]] as [number,number][]).map(([fx, fz], i) => (
         <mesh key={i} position={[fx, -2.3, fz]} castShadow>
           <cylinderGeometry args={[0.1, 0.13, 0.7, 8]} />
@@ -340,88 +423,75 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
         </mesh>
       ))}
 
-      {/* ── 받침대 / 베이스 ──────────────────────────────────────────────── */}
+      {/* ── 받침대 ───────────────────────────────────────────────────────── */}
       <mesh position={[0, -1.9, 0]} castShadow>
         <cylinderGeometry args={[2.0, 2.3, 0.45, 32]} />
         {metalDark}
       </mesh>
-      {/* 받침대 상단 링 (장식) */}
       <mesh position={[0, -1.66, 0]}>
         <torusGeometry args={[1.95, 0.07, 12, 64]} />
         {metalGold}
       </mesh>
 
-      {/* ── 본체 하단 좁아지는 넥(목) 부분 ──────────────────────────────── */}
+      {/* ── 본체 넥 ──────────────────────────────────────────────────────── */}
       <mesh position={[0, -1.0, 0]} castShadow>
         <cylinderGeometry args={[0.6, 1.9, 0.7, 32]} />
         {metalGray}
       </mesh>
 
-      {/* ── 메인 바디 (원통) ─────────────────────────────────────────────── */}
+      {/* ── 메인 바디 ────────────────────────────────────────────────────── */}
       <mesh position={[0, 0.1, 0]} castShadow>
         <cylinderGeometry args={[1.75, 1.75, 2.2, 32]} />
         {metalGray}
       </mesh>
 
-      {/* ── 바디 중간 장식 밴드 ──────────────────────────────────────────── */}
-      <mesh position={[0, 0.1, 0]}>
-        <torusGeometry args={[1.76, 0.05, 10, 64]} />
-        {metalGold}
-      </mesh>
-      {/* 위쪽 밴드 */}
-      <mesh position={[0, 0.8, 0]}>
-        <torusGeometry args={[1.76, 0.05, 10, 64]} />
-        {metalGold}
-      </mesh>
-      {/* 아래쪽 밴드 */}
-      <mesh position={[0, -0.6, 0]}>
-        <torusGeometry args={[1.76, 0.05, 10, 64]} />
-        {metalGold}
-      </mesh>
+      {/* ── 장식 밴드 ────────────────────────────────────────────────────── */}
+      {[0.1, 0.8, -0.6].map((y, i) => (
+        <mesh key={i} position={[0, y, 0]}>
+          <torusGeometry args={[1.76, 0.05, 10, 64]} />
+          {metalGold}
+        </mesh>
+      ))}
 
-      {/* ── 앞면 패널 (이름판 역할의 볼록한 사각형) ─────────────────────── */}
+      {/* ── 앞면 패널 ────────────────────────────────────────────────────── */}
       <mesh position={[0, 0.1, 1.73]} castShadow>
         <boxGeometry args={[1.2, 1.4, 0.08]} />
         <meshStandardMaterial color="#1a1a3a" metalness={0.3} roughness={0.6} />
       </mesh>
-      {/* 패널 테두리 (금색 라인) */}
       <mesh position={[0, 0.1, 1.74]}>
         <ringGeometry args={[0.58, 0.65, 4, 1, Math.PI / 4]} />
         {metalGold}
       </mesh>
 
-      {/* ── 동전 투입구 (하단 앞면) ─────────────────────────────────────── */}
+      {/* ── 동전 투입구 ──────────────────────────────────────────────────── */}
       <mesh position={[0, -0.65, 1.74]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.12, 0.12, 0.12, 16]} />
         <meshStandardMaterial color="#222" metalness={0.5} roughness={0.5} />
       </mesh>
-      {/* 투입구 테두리 링 */}
       <mesh position={[0, -0.65, 1.75]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.14, 0.03, 8, 24]} />
         {metalGold}
       </mesh>
 
-      {/* ── 바디와 돔 연결부 넥 ──────────────────────────────────────────── */}
+      {/* ── 바디↔돔 연결 넥 ──────────────────────────────────────────────── */}
       <mesh position={[0, 1.45, 0]} castShadow>
         <cylinderGeometry args={[1.3, 1.7, 0.4, 32]} />
         {metalGray}
       </mesh>
 
-      {/* ── 돔 하단 플랜지 링 (금색) ─────────────────────────────────────── */}
+      {/* ── 돔 플랜지 링 ─────────────────────────────────────────────────── */}
       <mesh position={[0, 1.65, 0]}>
         <torusGeometry args={[1.28, 0.12, 14, 64]} />
         {metalGold}
       </mesh>
 
-      {/* ── 유리 돔 (투명 구) ─────────────────────────────────────────────── */}
-      {/* 외부: 반투명 파란 유리 */}
+      {/* ── 유리 돔 ──────────────────────────────────────────────────────── */}
       <mesh position={[0, 2.8, 0]}>
         <sphereGeometry args={[1.9, 40, 40]} />
         <meshStandardMaterial
           color="#99ccff" transparent opacity={0.18}
           metalness={0.1} roughness={0} side={THREE.FrontSide} />
       </mesh>
-      {/* 내부: 반사감 강조 */}
       <mesh position={[0, 2.8, 0]}>
         <sphereGeometry args={[1.88, 36, 36]} />
         <meshStandardMaterial
@@ -429,7 +499,7 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
           metalness={0.0} roughness={0} side={THREE.BackSide} />
       </mesh>
 
-      {/* ── 돔 상단 마감 캡 ──────────────────────────────────────────────── */}
+      {/* ── 돔 상단 캡 ───────────────────────────────────────────────────── */}
       <mesh position={[0, 4.67, 0]}>
         <sphereGeometry args={[0.22, 16, 16]} />
         {metalGold}
@@ -458,12 +528,10 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
       ))}
 
       {/* ── 핸들 피벗 기어 디스크 ────────────────────────────────────────── */}
-      {/* 기계 오른쪽 측면에 고정된 기어 판 */}
       <mesh position={[1.77, 0.1, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
         <cylinderGeometry args={[0.45, 0.45, 0.12, 24]} />
         {metalDark}
       </mesh>
-      {/* 기어 판 장식 구멍 4개 */}
       {[0, 1, 2, 3].map((n) => {
         const a = (n / 4) * Math.PI * 2;
         return (
@@ -474,7 +542,6 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
           </mesh>
         );
       })}
-      {/* 기어 판 중앙 볼트 */}
       <mesh position={[1.77, 0.1, 0]} rotation={[0, Math.PI / 2, 0]}>
         <cylinderGeometry args={[0.1, 0.1, 0.15, 12]} />
         {metalGold}
@@ -482,20 +549,19 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
 
       {/* ── 핸들 그룹 (피벗: [2.3, 0.1, 0], Z축 회전) ───────────────────── */}
       <group ref={handleGroupRef} position={[2.3, 0.1, 0]}>
-        {/* 핸들 암 (피벗 → 노브 방향으로 뻗어있음) */}
+        {/* 핸들 암 */}
         <mesh position={[0.75, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[0.07, 0.07, 1.5, 12]} />
           {metalRed}
         </mesh>
-        {/* 노브 연결부 (짧은 Z축 핀) */}
+        {/* 노브 연결 핀 */}
         <mesh position={[1.5, 0, 0]} castShadow>
           <cylinderGeometry args={[0.07, 0.07, 0.3, 12]} />
           {metalRed}
         </mesh>
-        {/* 노브 구체 (클릭 가능 영역) */}
+        {/* 노브 구체 – 데스크톱 클릭 타겟 */}
         <mesh
           position={[1.5, 0, 0.22]}
-          ref={(el) => { /* knob ref – 클릭 감지용 */ void el; }}
           onPointerDown={handlePointerDown}
           castShadow
         >
@@ -509,40 +575,45 @@ function MachineScene({ players, onResult, onProgressUpdate }: MachineSceneProps
         </mesh>
       </group>
 
-      {/* ── 핸들 커버 (기계 옆면 패널) ──────────────────────────────────── */}
+      {/* ── 핸들 커버 링 ─────────────────────────────────────────────────── */}
       <mesh position={[1.77, 0.1, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
         <ringGeometry args={[0.46, 0.55, 24]} />
         {metalGold}
       </mesh>
 
-      {/* ── 배출구 슈트 (앞쪽 비스듬히) ─────────────────────────────────── */}
+      {/* ── 배출구 슈트 ──────────────────────────────────────────────────── */}
       <mesh position={[0, -1.05, 1.2]} rotation={[-0.75, 0, 0]} castShadow>
         <cylinderGeometry args={[0.28, 0.28, 1.4, 16]} />
         {metalDark}
       </mesh>
-      {/* 슈트 끝 테두리 링 */}
       <mesh position={[0, -1.68, 1.88]} rotation={[-0.75, 0, 0]}>
         <torusGeometry args={[0.3, 0.05, 10, 24]} />
         {metalGold}
       </mesh>
 
-      {/* ── 트레이 (공이 굴러오는 받침대) ───────────────────────────────── */}
+      {/* ── 트레이 ───────────────────────────────────────────────────────── */}
       <mesh position={[0, -1.85, 2.2]} castShadow>
         <boxGeometry args={[1.3, 0.08, 0.9]} />
         {metalDark}
       </mesh>
-      {/* 트레이 앞면 칸막이 */}
       <mesh position={[0, -1.65, 2.62]}>
         <boxGeometry args={[1.3, 0.42, 0.06]} />
         {metalDark}
       </mesh>
-      {/* 트레이 양 옆 칸막이 */}
       {[-0.63, 0.63].map((x, i) => (
         <mesh key={i} position={[x, -1.65, 2.38]}>
           <boxGeometry args={[0.06, 0.42, 0.46]} />
           {metalDark}
         </mesh>
       ))}
+
+      {/* ── 모바일 전체 화면 터치 영역 (투명 평면) ───────────────────────── */}
+      {isMobile && (
+        <mesh position={[1.2, 0, 3.8]} onPointerDown={handlePointerDown}>
+          <planeGeometry args={[20, 16]} />
+          <meshBasicMaterial transparent opacity={0.001} depthWrite={false} />
+        </mesh>
+      )}
     </>
   );
 }
@@ -569,9 +640,10 @@ function ProgressArc({ progress }: { progress: number }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // GaraponScene – 최상위 내보내기
 // ─────────────────────────────────────────────────────────────────────────────
-export default function GaraponScene({ players, onResult }: Props) {
-  const [progress, setProgress] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+export default function GaraponScene({ players, onResult, targetPlayerId }: Props) {
+  const [progressPct, setProgressPct] = useState(0);
+  const [isMobile, setIsMobile]  = useState(false);
+  const [suspense, setSuspenseOverlay] = useState(false);
 
   useEffect(() => {
     const check = () => setIsMobile(window.matchMedia("(pointer: coarse)").matches);
@@ -585,22 +657,44 @@ export default function GaraponScene({ players, onResult }: Props) {
       {/* ── Three.js Canvas ───────────────────────────────────────────────── */}
       <Canvas
         camera={{ position: [0, 1.2, 8], fov: 52 }}
-        style={{ height: "520px", width: "100%", borderRadius: "16px" }}
+        style={{ height: isMobile ? "480px" : "520px", width: "100%", borderRadius: "16px" }}
         shadows
       >
-        {/* 어두운 배경 */}
         <color attach="background" args={["#0d0d1e"]} />
-        <MachineScene players={players} onResult={onResult} onProgressUpdate={setProgress} />
+        <CameraController isMobile={isMobile} />
+        <MachineScene
+          players={players}
+          onResult={onResult}
+          onProgressUpdate={setProgressPct}
+          onSuspenseChange={setSuspenseOverlay}
+          isMobile={isMobile}
+          targetPlayerId={targetPlayerId}
+        />
       </Canvas>
+
+      {/* ── 서스펜스 오버레이 (긴장감 연출) ─────────────────────────────── */}
+      {suspense && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center
+                        rounded-2xl bg-black/55 backdrop-blur-sm">
+          <div className="text-center">
+            <p className="animate-bounce text-5xl font-extrabold text-white drop-shadow-2xl">
+              두근두근...
+            </p>
+            <p className="mt-3 animate-pulse text-xl font-bold text-yellow-300">
+              ⚡ 공이 결정되고 있어요! ⚡
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── 조작 안내 오버레이 ────────────────────────────────────────────── */}
       <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2
                       rounded-xl border border-white/15 bg-black/60 px-4 py-2.5
                       text-center backdrop-blur-sm">
-        <p className="text-sm font-bold text-white">핸들을 2바퀴 돌리면 공이 나와요!</p>
+        <p className="text-sm font-bold text-white">핸들을 3바퀴 돌리면 공이 나와요!</p>
         <p className="mt-0.5 text-xs text-white/65">
           {isMobile
-            ? "🤙 빨간 노브를 손가락으로 원형으로 돌리세요"
+            ? "🤙 화면 어디서든 손가락으로 원형으로 돌리세요"
             : "🖱 빨간 노브를 마우스로 원형으로 돌리세요"}
         </p>
       </div>
@@ -608,16 +702,18 @@ export default function GaraponScene({ players, onResult }: Props) {
       {/* ── 회전 진행도 ──────────────────────────────────────────────────── */}
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
         <div className="relative flex items-center justify-center">
-          <ProgressArc progress={progress} />
+          <ProgressArc progress={progressPct} />
           <span className="absolute text-xs font-bold text-white">
-            {Math.round(progress)}%
+            {Math.round(progressPct)}%
           </span>
         </div>
         <span className="rounded-lg border border-white/15 bg-black/55 px-3 py-1
                          text-xs text-white/80 backdrop-blur-sm">
-          {progress >= 100
-            ? <span className="animate-pulse text-green-400 font-semibold">✓ 공 배출 중!</span>
-            : `회전량 ${Math.round(progress)}% — ${progress < 50 ? "더 돌려주세요" : "거의 다 됐어요!"}`
+          {suspense
+            ? <span className="animate-pulse font-semibold text-yellow-300">🥁 두근두근 결정 중...</span>
+            : progressPct >= 100
+              ? <span className="animate-pulse font-semibold text-green-400">✓ 공 배출 중!</span>
+              : `회전량 ${Math.round(progressPct)}% — ${progressPct < 50 ? "더 돌려주세요" : "거의 다 됐어요!"}`
           }
         </span>
       </div>
