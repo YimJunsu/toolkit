@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, X, ChevronRight } from "lucide-react";
+import { Search, X, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/constants/categories";
 import { TOOLS_BY_CATEGORY } from "@/lib/constants/tools";
 import { CATEGORY_ICON_MAP } from "@/lib/constants/categoryIcons";
+import { QuickAccessBar } from "@/components/ui/QuickAccessBar";
 import type { ToolItem } from "@/lib/constants/tools";
 
 const ACTIVE_CATEGORIES = CATEGORIES.filter(
@@ -79,6 +80,16 @@ function ToolGroup({ tools }: { tools: ToolItem[] }) {
 export function MobileHomePage() {
   const [query, setQuery]               = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+  const toggleCategory = (id: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const isFiltered = query.trim().length > 0 || activeCategory !== null;
 
@@ -91,7 +102,8 @@ export function MobileHomePage() {
       tools = tools.filter(
         (t) =>
           t.label.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q)
+          t.description.toLowerCase().includes(q) ||
+          t.keywords?.some((kw) => kw.toLowerCase().includes(q))
       );
     }
     return tools;
@@ -104,6 +116,9 @@ export function MobileHomePage() {
 
   return (
     <div className="flex flex-col gap-5">
+
+      {/* ── 즐겨찾기 / 최근 사용 ── */}
+      <QuickAccessBar />
 
       {/* ── 검색 ── */}
       <div className="relative">
@@ -189,16 +204,22 @@ export function MobileHomePage() {
         </div>
       ) : (
         /* 기본: 카테고리별 섹션 */
-        <div className="flex flex-col gap-7">
+        <div className="flex flex-col gap-5">
           {ACTIVE_CATEGORIES.map((cat) => {
-            const tools = TOOLS_BY_CATEGORY[cat.id] ?? [];
-            const Icon  = CATEGORY_ICON_MAP[cat.id];
+            const tools     = TOOLS_BY_CATEGORY[cat.id] ?? [];
+            const Icon      = CATEGORY_ICON_MAP[cat.id];
+            const collapsed = collapsedCategories.has(cat.id);
 
             return (
               <section key={cat.id}>
                 {/* 섹션 헤더 */}
                 <div className="mb-2.5 flex items-center justify-between px-1">
-                  <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(cat.id)}
+                    aria-expanded={!collapsed}
+                    className="flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                  >
                     {Icon && <Icon size={12} className="text-brand" />}
                     <span className="text-[11px] font-bold uppercase tracking-widest text-text-secondary/80">
                       {cat.label}
@@ -206,7 +227,11 @@ export function MobileHomePage() {
                     <span className="text-[11px] text-text-secondary/40">
                       {tools.length}
                     </span>
-                  </div>
+                    <ChevronDown
+                      size={11}
+                      className={`text-text-secondary/40 transition-transform duration-200 ${collapsed ? "-rotate-90" : "rotate-0"}`}
+                    />
+                  </button>
                   <Link
                     href={cat.href}
                     className="flex items-center gap-0.5 text-[11px] text-text-secondary/50 transition-colors hover:text-brand"
@@ -216,7 +241,16 @@ export function MobileHomePage() {
                   </Link>
                 </div>
 
-                <ToolGroup tools={tools} />
+                {/* 접기/펼치기 */}
+                <div
+                  className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
+                    collapsed ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"
+                  }`}
+                >
+                  <div className="min-h-0">
+                    <ToolGroup tools={tools} />
+                  </div>
+                </div>
               </section>
             );
           })}

@@ -134,10 +134,10 @@ export default function AboutPage() {
       <section className="w-full border-b border-border px-4 py-20 md:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <h2 className="text-2xl font-bold text-text-primary">
-            왜 tool.kit인가요?
+            왜 tool.kit을 사용할까요?
           </h2>
           <p className="mt-3 text-sm text-text-secondary">
-            실무에서 출발한 도구, 사용자를 위한 경험
+            실무에서 사용할 도구, 사용자를 위한 경험을 바탕으로
           </p>
         </div>
 

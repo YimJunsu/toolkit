@@ -52,6 +52,17 @@ import {
   Paintbrush,
   Sparkles,
   Repeat2,
+  ListChecks,
+  AlarmClock,
+  Globe,
+  Zap,
+  Square,
+  Crop,
+  Columns2,
+  FileCode,
+  Filter,
+  Timer,
+  Pilcrow,
 } from "lucide-react";
 
 export interface ToolItem {
@@ -61,6 +72,7 @@ export interface ToolItem {
   href: string;
   icon: LucideIcon;
   badge?: "NEW" | "인기";
+  keywords?: string[];
 }
 
 export const CODE_TOOLS: ToolItem[] = [
@@ -70,6 +82,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "JSON 포맷 정렬 · 최소화 · 유효성 검사 및 오류 위치 표시",
     href: "/tools/code/json-formatter",
     icon: Braces,
+    keywords: ["파싱", "parse", "prettify", "예쁘게", "포맷", "format", "검증", "validate", "정렬", "minify"],
   },
   {
     id: "regex-tester",
@@ -77,6 +90,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "정규식 패턴 테스트 · 매치 그룹 시각화 · 플래그 옵션 지원",
     href: "/tools/code/regex-tester",
     icon: Regex,
+    keywords: ["정규표현식", "정규식", "패턴", "매칭", "match", "replace", "치환"],
   },
   {
     id: "sql-formatter",
@@ -84,6 +98,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "SQL 쿼리 자동 정렬 · 키워드 대문자 변환 · 복사",
     href: "/tools/code/sql-formatter",
     icon: Table2,
+    keywords: ["쿼리", "query", "데이터베이스", "database", "db", "select", "정렬", "포맷"],
   },
   {
     id: "diff-tool",
@@ -91,6 +106,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "두 텍스트 라인 단위 비교 · 추가/삭제 하이라이트 시각화",
     href: "/tools/code/diff-tool",
     icon: GitCompare,
+    keywords: ["비교", "compare", "텍스트비교", "차이", "변경사항", "merge", "병합", "다른점"],
   },
   {
     id: "markdown-editor",
@@ -98,6 +114,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "마크다운 실시간 미리보기 · 편집기 분할 화면",
     href: "/tools/code/markdown-editor",
     icon: BookOpen,
+    keywords: ["마크다운", "md", "미리보기", "preview", "문서편집", "readme"],
   },
   {
     id: "api-tester",
@@ -105,6 +122,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "HTTP 요청 전송 · 응답 확인 · 헤더 / 바디 설정",
     href: "/tools/code/api-tester",
     icon: Send,
+    keywords: ["REST", "HTTP", "GET", "POST", "PUT", "DELETE", "fetch", "요청", "응답", "postman"],
   },
   {
     id: "snippet-manager",
@@ -112,6 +130,7 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "코드 스니펫 저장 · 검색 · 복사 (로컬 저장소 기반)",
     href: "/tools/code/snippet-manager",
     icon: Bookmark,
+    keywords: ["코드조각", "코드저장", "snippet", "북마크", "즐겨찾기", "저장"],
   },
   {
     id: "lint-analyzer",
@@ -119,6 +138,33 @@ export const CODE_TOOLS: ToolItem[] = [
     description: "JS·TS·Python·HTML·CSS 기본 코드 품질 검사 및 이슈 리포트",
     href: "/tools/code/lint-analyzer",
     icon: ScanText,
+    keywords: ["린트", "코드검사", "정적분석", "eslint", "품질", "오류검사", "버그"],
+  },
+  {
+    id: "json-schema-validator",
+    label: "JSON Schema Validator",
+    description: "JSON 데이터를 Schema에 맞게 검증 · 오류 위치 및 원인 표시",
+    href: "/tools/code/json-schema-validator",
+    icon: ListChecks,
+    badge: "NEW",
+    keywords: ["스키마", "schema", "json검증", "validate", "draft-7", "타입검사", "필수필드"],
+  },
+  {
+    id: "cron-builder",
+    label: "Cron Expression Builder",
+    description: "크론 표현식 시각적 빌더 · 다음 실행 시간 미리보기",
+    href: "/tools/code/cron-builder",
+    icon: AlarmClock,
+    badge: "NEW",
+    keywords: ["크론", "cron", "스케줄", "schedule", "타이머", "주기", "crontab", "자동화"],
+  },
+  {
+    id: "http-status",
+    label: "HTTP Status Code Reference",
+    description: "HTTP 상태 코드 레퍼런스 · 코드별 설명 및 용도 정리",
+    href: "/tools/code/http-status",
+    icon: Globe,
+    keywords: ["HTTP", "상태코드", "status", "404", "500", "200", "오류코드", "REST"],
   },
 ];
 
@@ -129,6 +175,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "무료 SVG 아이콘 검색 및 React / SVG 코드 복사",
     href: "/tools/design/icon-library",
     icon: Shapes,
+    keywords: ["아이콘", "icon", "SVG", "이모지", "lucide", "heroicons", "무료아이콘"],
   },
   {
     id: "font-preview",
@@ -136,6 +183,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "다양한 웹폰트 조합 및 스타일 시각화",
     href: "/tools/design/font-preview",
     icon: Type,
+    keywords: ["글꼴", "폰트", "웹폰트", "타이포", "typography", "google fonts"],
   },
   {
     id: "grid-generator",
@@ -143,6 +191,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "CSS Flexbox / Grid 코드 자동 생성",
     href: "/tools/design/grid-generator",
     icon: LayoutGrid,
+    keywords: ["레이아웃", "flexbox", "그리드", "grid", "flex", "CSS레이아웃", "배치"],
   },
   {
     id: "color-picker",
@@ -150,6 +199,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "HEX ↔ RGB ↔ HSL 변환 및 색상 시각화",
     href: "/tools/design/color-picker",
     icon: Pipette,
+    keywords: ["색상", "컬러", "color", "HEX", "RGB", "HSL", "색깔", "색상변환"],
   },
   {
     id: "color-palette",
@@ -157,6 +207,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "입력 색상 기반 보색·유사색·삼색 팔레트 생성",
     href: "/tools/design/color-palette",
     icon: Palette,
+    keywords: ["팔레트", "색조합", "보색", "색상팔레트", "컬러팔레트", "배색"],
   },
   {
     id: "gradient-generator",
@@ -164,6 +215,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "색상 조합으로 그라데이션 CSS 코드 즉시 생성",
     href: "/tools/design/gradient-generator",
     icon: Layers,
+    keywords: ["그라디언트", "그라데이션", "gradient", "배경", "background", "CSS"],
   },
   {
     id: "glassmorphism",
@@ -171,6 +223,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "blur · 투명도 · 테두리 실시간 조절로 유리 효과 CSS 코드 즉시 생성",
     href: "/tools/design/glassmorphism",
     icon: Sparkles,
+    keywords: ["유리효과", "블러", "blur", "backdrop", "투명", "frosted glass", "CSS효과"],
   },
   {
     id: "svg-editor",
@@ -178,6 +231,7 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "SVG 코드 최적화 · 미니파이 · 포매팅 · 소수점 정리 및 미리보기",
     href: "/tools/design/svg-editor",
     icon: PenTool,
+    keywords: ["SVG최적화", "벡터", "vector", "svgo", "SVG압축", "경로"],
   },
   {
     id: "tailwind-theme",
@@ -185,6 +239,34 @@ export const DESIGN_TOOLS: ToolItem[] = [
     description: "베이스 컬러로 oklch 기반 11단계 팔레트 생성 및 @theme 코드 출력",
     href: "/tools/design/tailwind-theme",
     icon: Paintbrush,
+    keywords: ["테마", "컬러시스템", "디자인토큰", "tailwind", "oklch", "팔레트", "CSS변수"],
+  },
+  {
+    id: "css-animation",
+    label: "CSS Animation Generator",
+    description: "keyframes 시각적 편집 · 프리셋 애니메이션 · 라이브 미리보기 · CSS 코드 생성",
+    href: "/tools/design/css-animation",
+    icon: Zap,
+    badge: "NEW",
+    keywords: ["애니메이션", "animation", "keyframe", "CSS효과", "전환", "transition", "motion", "fade", "bounce"],
+  },
+  {
+    id: "box-shadow",
+    label: "Box Shadow Generator",
+    description: "박스 그림자 시각적 편집 · 다중 그림자 · CSS 코드 생성",
+    href: "/tools/design/box-shadow",
+    icon: Square,
+    badge: "NEW",
+    keywords: ["박스쉐도우", "그림자", "shadow", "box-shadow", "CSS효과", "드롭쉐도우"],
+  },
+  {
+    id: "border-radius",
+    label: "Border Radius Visualizer",
+    description: "모서리 둥글기 시각적 편집 · 각 코너 개별 조절 · CSS + Tailwind 코드 생성",
+    href: "/tools/design/border-radius",
+    icon: Crop,
+    badge: "NEW",
+    keywords: ["보더라디우스", "border-radius", "모서리", "rounded", "tailwind", "CSS", "둥글기"],
   },
 ];
 
@@ -195,6 +277,7 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "Base32 · Base58 · Base64 인코딩 및 디코딩",
     href: "/tools/encode-decode/base-encoder",
     icon: Binary,
+    keywords: ["인코딩", "디코딩", "base64", "base32", "암호화", "변환", "encode", "decode"],
   },
   {
     id: "crypto-tool",
@@ -202,6 +285,7 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "AES-256 대칭 암호화 · RSA-2048 비대칭 암호화 테스트",
     href: "/tools/encode-decode/crypto-tool",
     icon: ShieldCheck,
+    keywords: ["암호화", "복호화", "AES", "RSA", "보안", "비밀번호", "encrypt", "decrypt", "대칭", "비대칭"],
   },
   {
     id: "url-shortener",
@@ -209,6 +293,7 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "긴 URL을 짧은 링크로 즉시 변환",
     href: "/tools/encode-decode/url-shortener",
     icon: Link2,
+    keywords: ["단축URL", "링크단축", "짧은링크", "short url", "링크", "URL변환"],
   },
   {
     id: "jwt-decoder",
@@ -216,6 +301,7 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "JWT 토큰의 Header · Payload · 만료 시간을 브라우저에서 즉시 디코딩",
     href: "/tools/encode-decode/jwt-decoder",
     icon: FileKey2,
+    keywords: ["JWT", "토큰", "인증", "auth", "token", "bearer", "payload", "로그인토큰"],
   },
   {
     id: "html-encoder",
@@ -223,6 +309,7 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "특수 문자 ↔ HTML 엔티티(&amp; &lt; &gt; &quot;) 양방향 변환",
     href: "/tools/encode-decode/html-encoder",
     icon: Code2,
+    keywords: ["HTML엔티티", "특수문자", "이스케이프", "escape", "entity", "태그변환"],
   },
   {
     id: "sha256",
@@ -230,6 +317,7 @@ export const ENCODE_DECODE_TOOLS: ToolItem[] = [
     description: "SHA-256 · SHA-1 · SHA-512 해시를 HEX · Base64로 즉시 계산",
     href: "/tools/encode-decode/sha256",
     icon: Hash,
+    keywords: ["해시", "체크섬", "SHA", "SHA256", "MD5", "checksum", "무결성", "파일검증"],
   },
 ];
 
@@ -240,6 +328,7 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "텍스트 언어 자동 감지 및 10개 언어 번역",
     href: "/tools/text/lang-detector",
     icon: Languages,
+    keywords: ["번역", "translate", "언어감지", "영어번역", "한영번역", "영한번역", "일본어", "중국어"],
   },
   {
     id: "summarizer",
@@ -247,6 +336,7 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "긴 글에서 핵심 문장과 주요 키워드 자동 추출",
     href: "/tools/text/summarizer",
     icon: FileText,
+    keywords: ["요약", "키워드", "핵심문장", "요약하기", "글요약", "summarize"],
   },
   {
     id: "alt-text",
@@ -254,6 +344,7 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "이미지 설명용 alt 텍스트 작성 가이드 및 접근성 향상",
     href: "/tools/text/alt-text",
     icon: ImageIcon,
+    keywords: ["대체텍스트", "alt", "접근성", "accessibility", "SEO", "이미지설명"],
   },
   {
     id: "word-counter",
@@ -261,6 +352,7 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "글자 수·단어 수·문장 수·읽기 시간 분석 및 키워드 빈도 통계",
     href: "/tools/text/word-counter",
     icon: Hash,
+    keywords: ["글자수", "단어수", "글자세기", "분량", "글자수세기", "원고지", "읽기시간"],
   },
   {
     id: "case-converter",
@@ -268,6 +360,7 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "camelCase · snake_case · PascalCase · kebab-case · UPPER / lower 즉시 변환",
     href: "/tools/text/case-converter",
     icon: Code2,
+    keywords: ["대소문자", "camel", "snake", "pascal", "케이스변환", "대문자", "소문자", "변수명"],
   },
   {
     id: "slug-generator",
@@ -275,6 +368,7 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "제목 또는 문장을 URL 친화적인 slug로 즉시 변환",
     href: "/tools/text/slug-generator",
     icon: Link2,
+    keywords: ["URL슬러그", "slug", "주소변환", "URL생성", "permalink", "경로"],
   },
   {
     id: "lorem-ipsum",
@@ -282,6 +376,16 @@ export const TEXT_TOOLS: ToolItem[] = [
     description: "단락·단어·문장 단위로 Lorem Ipsum 더미 텍스트 생성",
     href: "/tools/text/lorem-ipsum",
     icon: FileText,
+    keywords: ["더미텍스트", "샘플텍스트", "placeholder", "로렘입숨", "임시텍스트", "테스트텍스트"],
+  },
+  {
+    id: "text-diff",
+    label: "Text Diff Viewer",
+    description: "두 텍스트 라인 단위 비교 · 추가/삭제 하이라이트 · 순수 텍스트 전용",
+    href: "/tools/text/text-diff",
+    icon: Columns2,
+    badge: "NEW",
+    keywords: ["텍스트비교", "diff", "비교", "변경사항", "추가삭제", "텍스트차이", "라인비교"],
   },
 ];
 
@@ -292,6 +396,7 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "MP3·WAV·OGG 등 오디오를 WAV로 변환 및 미리보기",
     href: "/tools/converter/audio-converter",
     icon: Music,
+    keywords: ["음악", "음성", "MP3", "WAV", "OGG", "오디오변환", "음원변환", "소리"],
   },
   {
     id: "video-converter",
@@ -299,6 +404,7 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "MP4·WebM 해상도·화질 압축 및 WebM 포맷 변환",
     href: "/tools/converter/video-converter",
     icon: Film,
+    keywords: ["동영상", "영상", "MP4", "WebM", "비디오압축", "용량줄이기", "동영상변환", "해상도"],
   },
   {
     id: "font-converter",
@@ -306,6 +412,7 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "TTF·OTF → WOFF 변환 및 CSS @font-face 코드 생성",
     href: "/tools/converter/font-converter",
     icon: Baseline,
+    keywords: ["폰트변환", "WOFF", "TTF", "OTF", "웹폰트변환", "font-face"],
   },
   {
     id: "doc-converter",
@@ -313,6 +420,7 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "이미지 → PDF 변환 및 PDF → 이미지 추출",
     href: "/tools/converter/doc-converter",
     icon: FileOutput,
+    keywords: ["PDF변환", "문서변환", "PDF이미지", "이미지PDF", "사진PDF", "PDF추출"],
   },
   {
     id: "image-converter",
@@ -320,6 +428,7 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "JPEG·PNG·WebP·SVG 포맷 변환, 압축, 리사이즈, 배경 제거",
     href: "/tools/converter/image-converter",
     icon: ImageIcon,
+    keywords: ["이미지변환", "사진변환", "PNG", "JPEG", "JPG", "WebP", "배경제거", "이미지압축", "리사이즈", "크기조절"],
   },
   {
     id: "qr-tool",
@@ -327,6 +436,16 @@ export const CONVERTER_TOOLS: ToolItem[] = [
     description: "URL → QR 코드 생성 및 QR 이미지/카메라 스캔으로 정보 추출",
     href: "/tools/converter/qr-tool",
     icon: QrCode,
+    keywords: ["QR코드", "QR생성", "QR스캔", "바코드", "qr", "링크QR", "QR만들기"],
+  },
+  {
+    id: "markdown-html",
+    label: "Markdown → HTML 변환기",
+    description: "마크다운을 HTML로 실시간 변환 · 렌더링 미리보기 · 소스 복사",
+    href: "/tools/converter/markdown-html",
+    icon: FileCode,
+    badge: "NEW",
+    keywords: ["마크다운", "markdown", "html변환", "렌더링", "미리보기", "md to html", "문서변환"],
   },
 ];
 
@@ -337,6 +456,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "전경색·배경색 조합의 WCAG AA · AAA 명암비 즉시 검사",
     href: "/tools/web/color-contrast",
     icon: Contrast,
+    keywords: ["명암비", "색상접근성", "WCAG", "가독성", "텍스트색상", "배경색", "접근성"],
   },
   {
     id: "seo-analyzer",
@@ -344,6 +464,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "title · description · heading · OpenGraph 태그 분석 및 점수 산출",
     href: "/tools/web/seo-analyzer",
     icon: Search,
+    keywords: ["SEO검사", "검색엔진최적화", "메타태그", "구글최적화", "검색순위", "노출"],
   },
   {
     id: "performance-test",
@@ -351,6 +472,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "PageSpeed Insights로 Core Web Vitals 측정",
     href: "/tools/web/performance-test",
     icon: Gauge,
+    keywords: ["성능테스트", "속도측정", "웹성능", "PageSpeed", "로딩속도", "LCP", "FCP"],
   },
   {
     id: "cookie-viewer",
@@ -358,6 +480,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "현재 페이지의 Cookie · localStorage · sessionStorage 조회",
     href: "/tools/web/cookie-viewer",
     icon: Cookie,
+    keywords: ["쿠키", "로컬스토리지", "세션", "localStorage", "sessionStorage", "저장소"],
   },
   {
     id: "meta-preview",
@@ -365,6 +488,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "Google 검색 결과 스니펫 미리보기",
     href: "/tools/web/meta-preview",
     icon: MonitorSmartphone,
+    keywords: ["메타태그", "검색결과미리보기", "구글미리보기", "스니펫", "검색카드"],
   },
   {
     id: "og-preview",
@@ -372,6 +496,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "Facebook · Twitter(X) · Discord 소셜 카드 미리보기",
     href: "/tools/web/og-preview",
     icon: Share2,
+    keywords: ["오픈그래프", "소셜미리보기", "SNS카드", "Facebook", "트위터", "카카오", "공유"],
   },
   {
     id: "robots-generator",
@@ -379,6 +504,7 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "User-agent 규칙으로 robots.txt 즉시 생성",
     href: "/tools/web/robots-generator",
     icon: Bot,
+    keywords: ["robots", "크롤링차단", "검색엔진차단", "크롤러", "스크래핑차단"],
   },
   {
     id: "sitemap-generator",
@@ -386,6 +512,16 @@ export const WEB_TOOLS: ToolItem[] = [
     description: "URL 목록을 XML sitemap으로 즉시 변환",
     href: "/tools/web/sitemap-generator",
     icon: Network,
+    keywords: ["사이트맵", "XML", "검색엔진등록", "sitemap", "페이지목록"],
+  },
+  {
+    id: "cors-tester",
+    label: "CORS Header Tester",
+    description: "URL의 CORS 허용 헤더 확인 · Access-Control 헤더 분석",
+    href: "/tools/web/cors-tester",
+    icon: Globe,
+    badge: "NEW",
+    keywords: ["CORS", "Cross-Origin", "헤더", "Access-Control", "API오류", "CORS오류", "preflight"],
   },
 ];
 
@@ -396,6 +532,7 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "CSV와 JSON 형식을 양방향으로 즉시 변환",
     href: "/tools/data-format/csv-json",
     icon: FileJson,
+    keywords: ["CSV변환", "JSON변환", "데이터변환", "스프레드시트", "표", "테이블변환"],
   },
   {
     id: "excel-converter",
@@ -403,6 +540,7 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "XLSX·XLS·CSV 파일을 JSON 또는 CSV로 변환 및 테이블 미리보기",
     href: "/tools/data-format/excel-converter",
     icon: TableProperties,
+    keywords: ["엑셀변환", "XLSX", "XLS", "엑셀파싱", "스프레드시트변환", "엑셀JSON"],
   },
   {
     id: "uuid-generator",
@@ -410,6 +548,7 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "UUID v4 단일·대량 생성 및 다양한 포맷 변환",
     href: "/tools/data-format/uuid-generator",
     icon: Fingerprint,
+    keywords: ["UUID생성", "GUID", "고유ID", "랜덤ID", "식별자", "unique id"],
   },
   {
     id: "data-generator",
@@ -417,6 +556,7 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "이름·이메일·전화번호 등 테스트용 샘플 데이터를 JSON·CSV·SQL로 즉시 생성",
     href: "/tools/data-format/data-generator",
     icon: Database,
+    keywords: ["테스트데이터", "더미데이터", "샘플데이터", "mock", "가짜데이터", "faker"],
   },
   {
     id: "timestamp-converter",
@@ -424,6 +564,16 @@ export const DATA_FORMAT_TOOLS: ToolItem[] = [
     description: "Unix 타임스탬프 ↔ 날짜/시간 양방향 변환 및 KST·UTC 동시 표시",
     href: "/tools/data-format/timestamp-converter",
     icon: Clock,
+    keywords: ["타임스탬프", "Unix시간", "날짜변환", "시간변환", "epoch", "UTC", "KST", "날짜계산"],
+  },
+  {
+    id: "json-path",
+    label: "JSON Path Tester",
+    description: "JSONPath 표현식으로 JSON 데이터 쿼리 · 실시간 결과 확인",
+    href: "/tools/data-format/json-path",
+    icon: Filter,
+    badge: "NEW",
+    keywords: ["jsonpath", "JSON쿼리", "경로", "$.store", "필터", "JSON탐색", "데이터추출"],
   },
 ];
 
@@ -434,6 +584,7 @@ export const JOBS_TOOLS: ToolItem[] = [
     description: "평 ↔ m² ↔ ft² 면적 단위 변환 · 전용·공급·계약면적 계산",
     href: "/tools/jobs/area-calculator",
     icon: Ruler,
+    keywords: ["평수", "제곱미터", "부동산", "아파트", "면적", "평방미터", "평형", "전용면적", "공급면적"],
   },
   {
     id: "finance-calculator",
@@ -442,6 +593,7 @@ export const JOBS_TOOLS: ToolItem[] = [
     href: "/tools/jobs/finance-calculator",
     icon: Calculator,
     badge: "NEW",
+    keywords: ["급여", "세금", "연봉", "세후급여", "퇴직금", "4대보험", "프리랜서", "소득세", "월급", "실수령액", "세금계산", "자영업", "원천징수"],
   },
 ];
 
@@ -452,6 +604,7 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "상위 50개 코인 실시간 시세 · 가격 차트 · 검색 (60초 자동 갱신)",
     href: "/tools/etc/crypto-tracker",
     icon: TrendingUp,
+    keywords: ["비트코인", "이더리움", "코인", "가상화폐", "BTC", "ETH", "코인시세", "암호화폐가격"],
   },
   {
     id: "currency-converter",
@@ -459,6 +612,7 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "160개 통화 환율 조회 및 변환 · 일 1회 업데이트",
     href: "/tools/etc/currency-converter",
     icon: DollarSign,
+    keywords: ["환율", "달러", "유로", "엔화", "원화", "통화변환", "외화", "USD", "EUR", "JPY"],
   },
   {
     id: "ip-lookup",
@@ -466,6 +620,7 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "현재 접속 중인 공인 IP 주소 및 위치 정보 즉시 조회",
     href: "/tools/etc/ip-lookup",
     icon: Wifi,
+    keywords: ["IP주소", "내IP", "공인IP", "위치", "내 아이피", "IP확인", "아이피"],
   },
   {
     id: "coffee-bet",
@@ -473,6 +628,25 @@ export const ETC_TOOLS: ToolItem[] = [
     description: "팀원과 커피 내기를 할 수 있는 다양한 미니 게임 모음",
     href: "/tools/etc/coffee-bet",
     icon: Coffee,
+    keywords: ["동물달리기", "미니게임", "내기", "게임", "팀게임", "팀빌딩", "사다리타기", "랜덤뽑기", "팀원선택"],
+  },
+  {
+    id: "pomodoro",
+    label: "뽀모도로 타이머",
+    description: "25분 집중 · 5분 휴식 사이클 · 원형 프로그레스 · 알림음",
+    href: "/tools/etc/pomodoro",
+    icon: Timer,
+    badge: "NEW",
+    keywords: ["뽀모도로", "포모도로", "pomodoro", "타이머", "집중", "휴식", "생산성", "시간관리"],
+  },
+  {
+    id: "ascii-art",
+    label: "ASCII Art Generator",
+    description: "텍스트를 ASCII 아트로 변환 · 다양한 폰트 스타일 선택",
+    href: "/tools/etc/ascii-art",
+    icon: Pilcrow,
+    badge: "NEW",
+    keywords: ["ASCII아트", "텍스트아트", "ASCII", "아스키", "텍스트변환", "아스키아트", "배너"],
   },
 ];
 

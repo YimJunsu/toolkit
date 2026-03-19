@@ -34,6 +34,22 @@
   --color-brand-hover: #a5b4fc;
 }
 
+/* ── 라이트 테마 ── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg-primary:   #f5f5ff;
+  --color-bg-secondary: #eaeaf8;
+
+  --color-text-primary:   #1a1b35;
+  --color-text-secondary: #6060a0;
+
+  --color-border: #cccce8;
+
+  --color-brand:       #6366f1;
+  --color-brand-hover: #4f46e5;
+}
+
 /* ============================================================
    Tailwind v4 커스텀 테마 토큰 등록
    ============================================================ */
@@ -56,7 +72,7 @@
 
 /* html까지 배경 적용 — 시스템 테마·스크롤 오버슈트 대응 */
 html {
-  background-color: #1e1f38;
+  background-color: var(--color-bg-primary);
 }
 
 body {
