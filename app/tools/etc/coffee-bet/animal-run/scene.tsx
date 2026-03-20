@@ -344,14 +344,14 @@ function ForestBackground({ trackWidth }: { trackWidth: number }) {
   const canopyRef = useRef<THREE.InstancedMesh>(null);
   const COUNT     = 40;
 
-  const positions = useMemo(() => {
+  const [positions] = useState(() => {
     const half = trackWidth / 2 + 0.45 + 0.35; // 배리어 바깥
     return Array.from({ length: COUNT }, (_, i) => ({
       x:     (i % 2 === 0 ? -1 : 1) * (half + 2.5 + Math.random() * 8),
       z:    -3 - (i / COUNT) * (RACE_LENGTH + 25) + Math.random() * 5,
       scale: 0.8 + Math.random() * 0.7,
     }));
-  }, [trackWidth]);
+  });
 
   useEffect(() => {
     const dummy = new THREE.Object3D();
@@ -392,14 +392,14 @@ function DesertBackground({ trackWidth }: { trackWidth: number }) {
   const armRef  = useRef<THREE.InstancedMesh>(null);
   const COUNT   = 32;
 
-  const positions = useMemo(() => {
+  const [positions] = useState(() => {
     const half = trackWidth / 2 + 0.45 + 0.35;
     return Array.from({ length: COUNT }, (_, i) => ({
       x:     (i % 2 === 0 ? -1 : 1) * (half + 2.5 + Math.random() * 8),
       z:    -3 - (i / COUNT) * (RACE_LENGTH + 25) + Math.random() * 5,
       scale: 0.7 + Math.random() * 0.8,
     }));
-  }, [trackWidth]);
+  });
 
   useEffect(() => {
     const dummy = new THREE.Object3D();
@@ -480,10 +480,9 @@ function CameraController({ animalsRef, trackWidth }: {
 
     // 카메라: 트랙 오른쪽(+X) 배치 → 왼쪽(X=0)을 바라봄
     const sideX = trackWidth / 2 + 14;
-    camera.position.x = sideX;
-    camera.position.y = 7;
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.07);
-    camera.lookAt(0, 1, camera.position.z);
+    const newZ  = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.07);
+    camera.position.set(sideX, 7, newZ);
+    camera.lookAt(0, 1, newZ);
   });
 
   return null;
@@ -509,16 +508,17 @@ function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds, is
     [numLanes],
   );
 
-  const obstacles = useMemo<Obstacle[]>(() =>
+  const [obstacles] = useState<Obstacle[]>(() =>
     Array.from({ length: 14 }, () => ({
       x: lanePositions[Math.floor(Math.random() * numLanes)],
       z: -30 - Math.random() * 110,
-    })), [numLanes, lanePositions]);
+    }))
+  );
 
   const boostZoneZ = [-38, -83, -122] as const;
 
   // ── 레이스 상태 ref ─────────────────────────────────────────────────────────
-  const animalsRef = useRef<AnimalState[]>(
+  const [initialAnimals] = useState(() =>
     players.map((p, idx) => ({
       id: p.id, name: p.name, index: idx,
       z: 0, speed: 0,
@@ -526,11 +526,12 @@ function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds, is
       laneX: lanePositions[idx],
       finished: false, stunTimer: 0, boostTimer: 0,
       speedFluctTimer: Math.random() * 0.3,
-    })),
+    }))
   );
+  const animalsRef = useRef<AnimalState[]>(initialAnimals);
 
-  const animalStateRefs = useRef<React.MutableRefObject<AnimalState>[]>(
-    animalsRef.current.map((s) => ({ current: s })),
+  const animalStateRefs = useRef<{ current: AnimalState }[]>(
+    initialAnimals.map((s) => ({ current: s })),
   );
 
   const finishOrderRef  = useRef<AnimalState[]>([]);
@@ -639,6 +640,7 @@ function RaceSceneContent({ players, map, onFinish, onUpdateRankings, sounds, is
 export default function AnimalRaceScene({ players, map, onFinish }: Props) {
   const [rankList, setRankList]   = useState<RankEntry[]>([]);
   const [countdown, setCountdown] = useState<number | "GO" | null>(3);
+  const [raceOver, setRaceOver]   = useState<number[] | null>(null);
   const sounds = useSounds();
 
   // 카운트다운: 3 → 2 → 1 → GO! → null (레이스 시작)
@@ -658,10 +660,28 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
     return () => clearTimeout(id);
   }, []);
 
+  // 카운트다운 음성 (Web Speech API)
+  useEffect(() => {
+    if (countdown === null || typeof window === "undefined") return;
+    if (!("speechSynthesis" in window)) return;
+    const text = countdown === "GO" ? "Start!" : String(countdown);
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 0.85;
+    utter.volume = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+  }, [countdown]);
+
   // GO! 타이밍에 출발 사운드 재생
   useEffect(() => {
     if (countdown === "GO") sounds.playStart();
   }, [countdown, sounds]);
+
+  // 레이스 완료 내부 핸들러 (오버레이 표시용)
+  const handleSceneFinish = useCallback((ids: number[]) => {
+    setRaceOver(ids);
+  }, []);
 
   const idToIndex = useMemo(() => {
     const m = new Map<number, number>();
@@ -682,13 +702,13 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
     : "#ff4444";
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full h-full">
       {/* ── Three.js Canvas ───────────────────────────────────────────────── */}
       <Canvas
         camera={{ position: [initCamX, 7, 0], fov: 65 }}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         dpr={1}
-        style={{ height: "520px", width: "100%", borderRadius: "16px" }}
+        style={{ height: "100%", width: "100%" }}
       >
         {/* 하늘 (단색 배경 대비 입체감 극적 향상) */}
         <Sky
@@ -707,7 +727,7 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
         <RaceSceneContent
           players={players}
           map={map}
-          onFinish={onFinish}
+          onFinish={handleSceneFinish}
           onUpdateRankings={handleUpdateRankings}
           sounds={sounds}
           isCountingDown={countdown !== null}
@@ -719,10 +739,9 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
 
       {/* ── 카운트다운 오버레이 ──────────────────────────────────────────── */}
       {countdown !== null && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center"
-          style={{ borderRadius: "16px" }}>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           {/* 반투명 어두운 배경 */}
-          <div className="absolute inset-0 bg-black/40" style={{ borderRadius: "16px" }} />
+          <div className="absolute inset-0 bg-black/40" />
           {/* 카운트다운 숫자 */}
           <span
             key={String(countdown)}
@@ -773,11 +792,27 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
       </div>
 
       {/* ── 하단 맵 정보 ─────────────────────────────────────────────────── */}
-      <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2
-                      rounded-full border border-white/20 bg-black/55 px-4 py-1.5
-                      text-xs text-white/70 backdrop-blur-sm whitespace-nowrap">
-        {map === "forest" ? "🌲 숲 속 레이스 진행 중..." : "🌵 사막 질주 진행 중..."}
-      </div>
+      {raceOver === null && (
+        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2
+                        rounded-full border border-white/20 bg-black/55 px-4 py-1.5
+                        text-xs text-white/70 backdrop-blur-sm whitespace-nowrap">
+          {map === "forest" ? "🌲 숲 속 레이스 진행 중..." : "🌵 사막 질주 진행 중..."}
+        </div>
+      )}
+
+      {/* ── 레이스 완료 오버레이 (클릭하면 결과 화면) ───────────────────── */}
+      {raceOver !== null && (
+        <div
+          className="absolute inset-0 flex cursor-pointer items-center justify-center"
+          onClick={() => onFinish(raceOver)}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative z-10 select-none text-center">
+            <p className="text-5xl font-black text-white drop-shadow-lg">🏁 레이스 완료!</p>
+            <p className="mt-4 text-lg text-white/80">화면을 클릭하면 결과를 볼 수 있어요</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

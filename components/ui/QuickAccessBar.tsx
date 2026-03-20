@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Star, Clock, X, StarOff } from "lucide-react";
 import { useToolStorage } from "@/hooks/useToolStorage";
@@ -18,12 +18,21 @@ type Tab = "favorites" | "recent";
 export function QuickAccessBar() {
   const { favorites, recent, toggleFavorite } = useToolStorage();
   const [tab, setTab] = useState<Tab>("recent");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const favTools  = favorites.map((id) => ALL_TOOLS_MAP.get(id)).filter(Boolean) as ToolItem[];
   const recentTools = recent.map((id) => ALL_TOOLS_MAP.get(id)).filter(Boolean) as ToolItem[];
 
   const isEmpty = tab === "favorites" ? favTools.length === 0 : recentTools.length === 0;
   const tools   = tab === "favorites" ? favTools : recentTools;
+
+  if (!mounted) {
+    return (
+      <div className="h-[72px] animate-pulse rounded-2xl border border-border bg-bg-secondary" />
+    );
+  }
 
   if (favorites.length === 0 && recent.length === 0) return null;
 

@@ -5,18 +5,11 @@ import {
   ShieldCheck,
   Layers,
   Code2,
-  Database,
-  ArrowLeftRight,
-  Palette,
-  Globe,
-  Type,
-  Lock,
-  FileOutput,
-  MoreHorizontal,
   ArrowRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants/categories";
+import { CATEGORY_ICON_MAP } from "@/lib/constants/categoryIcons";
 
 export const metadata: Metadata = {
   title: "소개",
@@ -42,8 +35,7 @@ const FEATURES: FeatureItem[] = [
     icon: ShieldCheck,
     title: "사용 시 광고 없음",
     description:
-      "사용 중 불필요한 광고 팝업, 멤버십 가입 권유 없이 도구 사용에만 집중할 수 있는 깔끔한 환경을 제공합니다." +
-        "\n※ 단, UI적 광고는 삽입.. (컨텐츠 유지를 위한..)",
+      "사용 중 불필요한 광고 팝업, 멤버십 가입 권유 없이 도구 사용에만 집중할 수 있는 깔끔한 환경을 제공합니다. 서비스 유지를 위한 최소한의 배너 광고가 노출될 수 있습니다.",
   },
   {
     icon: Layers,
@@ -58,20 +50,6 @@ const FEATURES: FeatureItem[] = [
       "실무 경험을 바탕으로 실제로 필요한 기능을 중심으로 설계된 도구들을 제공합니다.",
   },
 ];
-
-/* ── 카테고리 아이콘 매핑 ── */
-
-const CATEGORY_ICON_MAP: Record<string, LucideIcon> = {
-  "code":           Code2,
-  "data-format":    Database,
-  "converter":      ArrowLeftRight,
-  "design":         Palette,
-  "web":            Globe,
-  "text":           Type,
-  "encode-decode":  Lock,
-  "file-converter": FileOutput,
-  "etc":            MoreHorizontal,
-};
 
 /* ── 페이지 ── */
 

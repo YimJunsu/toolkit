@@ -56,12 +56,19 @@ export default function MainPage() {
             </Link>
           </div>
 
-          {/* 퀵 태그 — 데스크탑에서만 */}
-          <div className="mt-4 hidden flex-wrap gap-2 text-xs text-text-secondary md:flex">
-            <span className="rounded-full border border-border px-3 py-1">JSON</span>
-            <span className="rounded-full border border-border px-3 py-1">Base64</span>
-            <span className="rounded-full border border-border px-3 py-1">UUID</span>
-            <span className="rounded-full border border-border px-3 py-1">Hash</span>
+          {/* 퀵 태그 */}
+          <div
+            className="mt-4 flex flex-wrap gap-2 overflow-x-auto pb-0.5 text-xs text-text-secondary"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {["JSON", "Base64", "UUID", "Hash", "QR코드", "환율"].map((tag) => (
+              <span
+                key={tag}
+                className="shrink-0 rounded-full border border-border px-3 py-1"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
 
         </div>

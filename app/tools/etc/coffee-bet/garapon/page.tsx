@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useCallback } from "react";
-import { Gamepad2, Plus, Minus, RotateCcw, Coffee } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Gamepad2, Plus, Minus, RotateCcw, Coffee, Shuffle } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -13,7 +13,13 @@ export interface Player {
   name: string;
 }
 
-const GaraponScene = dynamic(() => import("./scene"), { ssr: false });
+const GaraponScene = dynamic(
+  () => import("./scene"),
+  { ssr: false }
+);
+
+// MAX_SPINS도 scene에서 가져오기 (동적 import이므로 상수는 여기서도 선언)
+const MAX_SPINS = 4;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 상수 & 타입
@@ -29,11 +35,12 @@ const BREADCRUMBS = [
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 8;
 
-// 씬과 동일한 색상 (인덱스 기반)
 const PLAYER_COLORS = [
   "#ff4444", "#44aaff", "#44cc44", "#ffaa00",
   "#ff44ff", "#00bbcc", "#ff8800", "#8844ff",
 ];
+
+const FUN_NAMES = ["김민준", "이서윤", "박도윤", "최지우", "정예준", "강하은", "조시우", "윤서연", "장민서", "임지호"];
 
 let nextId = 1;
 function makePlayer(name = ""): Player {
@@ -43,7 +50,7 @@ function makePlayer(name = ""): Player {
 const DEFAULT_PLAYERS: Player[] = [makePlayer("플레이어 1"), makePlayer("플레이어 2")];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BallDisplay – 탈출한 공 목록 (로또 스타일 사이드 패널)
+// BallDisplay – 탈출한 공 목록
 // ─────────────────────────────────────────────────────────────────────────────
 function BallDisplay({
   safePlayers,
@@ -61,19 +68,14 @@ function BallDisplay({
 
   return (
     <div className="w-full shrink-0 rounded-2xl border border-border bg-bg-secondary p-4 lg:w-52">
-      {/* 헤더 */}
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold text-text-primary">탈출한 공</p>
         <span className="rounded-full bg-bg-primary px-2 py-0.5 text-xs font-medium text-text-secondary">
           {safePlayers.length} / {totalPlayers - 1}
         </span>
       </div>
-
-      {/* 탈출 공 목록 */}
       {safePlayers.length === 0 ? (
-        <p className="py-6 text-center text-xs text-text-secondary">
-          아직 탈출한 공이 없어요
-        </p>
+        <p className="py-6 text-center text-xs text-text-secondary">아직 탈출한 공이 없어요</p>
       ) : (
         <div className="space-y-2">
           {safePlayers.map((p, idx) => (
@@ -81,7 +83,6 @@ function BallDisplay({
               key={p.id}
               className="flex items-center gap-2.5 rounded-xl border border-green-500/20 bg-green-500/5 px-3 py-2"
             >
-              {/* 로또 공 스타일 번호 */}
               <span
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold text-white shadow"
                 style={{ backgroundColor: getColor(p) }}
@@ -96,8 +97,6 @@ function BallDisplay({
           ))}
         </div>
       )}
-
-      {/* 남은 인원 표시 */}
       {safePlayers.length < totalPlayers - 1 && (
         <div className="mt-3 border-t border-border pt-3">
           <p className="text-xs text-text-secondary">대기 중</p>
@@ -111,57 +110,56 @@ function BallDisplay({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 메인 페이지 컴포넌트
+// 메인 페이지
 // ─────────────────────────────────────────────────────────────────────────────
 export default function GaraponPage() {
-  const [phase, setPhase]   = useState<GamePhase>("setup");
+  const [phase, setPhase]     = useState<GamePhase>("setup");
   const [players, setPlayers] = useState<Player[]>(DEFAULT_PLAYERS);
   const [loserId, setLoserId] = useState<number | null>(null);
+  const [spinCount, setSpinCount] = useState(0);   // 버튼 클릭 횟수
 
-  // ── 멀티라운드 전용 상태 ────────────────────────────────────────────────
-  // revealOrder: 미리 결정된 공 공개 순서 (마지막이 꽝)
-  const [revealOrder, setRevealOrder]             = useState<number[]>([]);
-  const [currentRevealIdx, setCurrentRevealIdx]   = useState(0);
-  const [safeIds, setSafeIds]                     = useState<number[]>([]); // 탈출 순서대로
-  const [justSafeId, setJustSafeId]               = useState<number | null>(null);
-  const [sceneKey, setSceneKey]                   = useState(0); // 씬 강제 리마운트용
+  // 멀티라운드 상태
+  const [revealOrder, setRevealOrder]           = useState<number[]>([]);
+  const [currentRevealIdx, setCurrentRevealIdx] = useState(0);
+  const [safeIds, setSafeIds]                   = useState<number[]>([]);
+  const [justSafeId, setJustSafeId]             = useState<number | null>(null);
+  const [sceneKey, setSceneKey]                 = useState(0);
 
-  // ── 파생 값 ─────────────────────────────────────────────────────────────
-  const isMultiRound      = players.length > 2;
-  const safePlayers       = safeIds.map((id) => players.find((p) => p.id === id)!).filter(Boolean);
-  const remainingPlayers  = players.filter((p) => !safeIds.includes(p.id));
-  const justSafePlayer    = players.find((p) => p.id === justSafeId) ?? null;
-  // 현재 라운드에서 배출될 공 (사전 결정)
-  const currentTargetId   = isMultiRound ? revealOrder[currentRevealIdx] : undefined;
+  // 파생 값
+  const isMultiRound     = players.length > 2;
+  const safePlayers      = safeIds.map((id) => players.find((p) => p.id === id)!).filter(Boolean);
+  const remainingPlayers = players.filter((p) => !safeIds.includes(p.id));
+  const justSafePlayer   = players.find((p) => p.id === justSafeId) ?? null;
+  const currentTargetId  = isMultiRound ? revealOrder[currentRevealIdx] : undefined;
 
-  // ── 플레이어 추가 ──────────────────────────────────────────────────────────
+  // ── 플레이어 관리 ────────────────────────────────────────────────────────
   const addPlayer = useCallback(() => {
     if (players.length >= MAX_PLAYERS) return;
     setPlayers((prev) => [...prev, makePlayer(`플레이어 ${prev.length + 1}`)]);
   }, [players.length]);
 
-  const removePlayer = useCallback(
-    (id: number) => {
-      if (players.length <= MIN_PLAYERS) return;
-      setPlayers((prev) => prev.filter((p) => p.id !== id));
-    },
-    [players.length]
-  );
+  const removePlayer = useCallback((id: number) => {
+    if (players.length <= MIN_PLAYERS) return;
+    setPlayers((prev) => prev.filter((p) => p.id !== id));
+  }, [players.length]);
 
   const updateName = useCallback((id: number, name: string) => {
     setPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
   }, []);
 
-  // ── 게임 시작 ──────────────────────────────────────────────────────────────
+  const shuffleNames = useCallback(() => {
+    const shuffled = [...FUN_NAMES].sort(() => Math.random() - 0.5).slice(0, players.length);
+    setPlayers((prev) => prev.map((p, i) => ({ ...p, name: shuffled[i] ?? p.name })));
+  }, [players.length]);
+
+  // ── 게임 시작 ────────────────────────────────────────────────────────────
   const startGame = useCallback(() => {
     const filled = players.map((p, i) => ({
       ...p,
       name: p.name.trim() || `플레이어 ${i + 1}`,
     }));
     setPlayers(filled);
-
     if (filled.length > 2) {
-      // 랜덤 순서로 공 공개 순서 결정 (마지막이 꽝)
       const shuffled = [...filled].sort(() => Math.random() - 0.5);
       setRevealOrder(shuffled.map((p) => p.id));
       setCurrentRevealIdx(0);
@@ -169,45 +167,57 @@ export default function GaraponPage() {
       setJustSafeId(null);
       setSceneKey(0);
     }
+    setSpinCount(0);
     setPhase("spinning");
   }, [players]);
 
-  // ── 결과 수신 (scene 콜백) ────────────────────────────────────────────────
-  const handleResult = useCallback(
-    (id: number) => {
-      if (!isMultiRound) {
-        // 2인 모드: 기존 동작 (나온 공 = 꽝)
-        setLoserId(id);
-        setPhase("result");
-        return;
+  // ── 핸들 돌리기 (버튼 / 스페이스바) ────────────────────────────────────
+  const handleSpin = useCallback(() => {
+    if (spinCount >= MAX_SPINS || phase !== "spinning") return;
+    setSpinCount((prev) => prev + 1);
+  }, [spinCount, phase]);
+
+  // 스페이스바 리스너
+  useEffect(() => {
+    if (phase !== "spinning") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        handleSpin();
       }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [phase, handleSpin]);
 
-      // 멀티라운드: 마지막 라운드 여부 확인
-      const isLoserRound = currentRevealIdx === revealOrder.length - 1;
+  // ── 결과 수신 ────────────────────────────────────────────────────────────
+  const handleResult = useCallback((id: number) => {
+    if (!isMultiRound) {
+      setLoserId(id);
+      setPhase("result");
+      return;
+    }
+    const isLoserRound = currentRevealIdx === revealOrder.length - 1;
+    if (isLoserRound) {
+      setLoserId(id);
+      setPhase("result");
+    } else {
+      setSafeIds((prev) => [...prev, id]);
+      setJustSafeId(id);
+      setCurrentRevealIdx((prev) => prev + 1);
+      setPhase("round-safe");
+    }
+  }, [isMultiRound, currentRevealIdx, revealOrder.length]);
 
-      if (isLoserRound) {
-        // 마지막 남은 공 = 꽝
-        setLoserId(id);
-        setPhase("result");
-      } else {
-        // 이번 라운드 탈출자
-        setSafeIds((prev) => [...prev, id]);
-        setJustSafeId(id);
-        setCurrentRevealIdx((prev) => prev + 1);
-        setPhase("round-safe");
-      }
-    },
-    [isMultiRound, currentRevealIdx, revealOrder.length]
-  );
-
-  // ── 다음 라운드 계속 ──────────────────────────────────────────────────────
+  // ── 다음 라운드 ──────────────────────────────────────────────────────────
   const continueGame = useCallback(() => {
     setJustSafeId(null);
-    setSceneKey((prev) => prev + 1); // 씬 리마운트 → 새 라운드
+    setSpinCount(0);
+    setSceneKey((prev) => prev + 1);
     setPhase("spinning");
   }, []);
 
-  // ── 다시 하기 ──────────────────────────────────────────────────────────────
+  // ── 다시 하기 ────────────────────────────────────────────────────────────
   const resetGame = useCallback(() => {
     setPhase("setup");
     setLoserId(null);
@@ -216,13 +226,11 @@ export default function GaraponPage() {
     setRevealOrder([]);
     setCurrentRevealIdx(0);
     setSceneKey(0);
+    setSpinCount(0);
   }, []);
 
   const loser = players.find((p) => p.id === loserId);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 렌더링
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <ToolPageLayout
       breadcrumbs={BREADCRUMBS}
@@ -230,33 +238,33 @@ export default function GaraponPage() {
       description="핸들을 돌려서 커피 살 사람을 뽑아보세요! 3D 일본식 가라폰 구슬 뽑기 머신."
       icon={Gamepad2}
     >
-      {/* ═══════════════════════════════════════════════════════════════════
-          SETUP 페이즈
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════ SETUP ══════════════════════════════ */}
       {phase === "setup" && (
         <div className="mx-auto max-w-lg space-y-8">
-          {/* 제목 카드 */}
-          <div className="rounded-2xl border border-border bg-bg-secondary p-6 text-center shadow-sm">
-            <h2 className="text-2xl font-bold text-text-primary">가라폰 (구슬 뽑기)</h2>
-            <p className="mt-2 text-sm text-text-secondary">
-              핸들을 돌려서 커피 살 사람을 뽑아보세요!
-            </p>
-          </div>
-
           {/* 플레이어 입력 */}
           <div className="rounded-2xl border border-border bg-bg-secondary p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-semibold text-text-primary">
                 참가자 ({players.length}/{MAX_PLAYERS}명)
               </h3>
-              <button
-                onClick={addPlayer}
-                disabled={players.length >= MAX_PLAYERS}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-primary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus size={14} />
-                참가자 추가
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={shuffleNames}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-primary px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-secondary hover:text-brand"
+                  title="이름 랜덤 배정"
+                >
+                  <Shuffle size={13} />
+                  랜덤 이름
+                </button>
+                <button
+                  onClick={addPlayer}
+                  disabled={players.length >= MAX_PLAYERS}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-primary px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Plus size={14} />
+                  추가
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2.5">
@@ -288,7 +296,6 @@ export default function GaraponPage() {
               ))}
             </div>
 
-            {/* 게임 방식 안내 */}
             <div className="mt-4 rounded-lg border border-dashed border-border bg-bg-primary px-4 py-3 text-center">
               {players.length === 2 ? (
                 <p className="text-xs text-text-secondary">
@@ -303,7 +310,6 @@ export default function GaraponPage() {
             </div>
           </div>
 
-          {/* 시작 버튼 */}
           <button
             onClick={startGame}
             className="w-full rounded-2xl bg-brand py-4 text-lg font-bold text-white shadow-lg transition-all hover:brightness-110 active:scale-95"
@@ -313,9 +319,7 @@ export default function GaraponPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          SPINNING 페이즈
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════ SPINNING ════════════════════════════ */}
       {phase === "spinning" && (
         <div className={`mx-auto space-y-4 ${isMultiRound ? "max-w-4xl" : "max-w-2xl"}`}>
           <div className={`flex gap-4 ${isMultiRound ? "flex-col lg:flex-row" : "flex-col"}`}>
@@ -326,16 +330,37 @@ export default function GaraponPage() {
                 players={isMultiRound ? remainingPlayers : players}
                 onResult={handleResult}
                 targetPlayerId={currentTargetId}
+                spinCount={spinCount}
               />
             </div>
-
-            {/* 멀티라운드: 탈출 공 패널 */}
             {isMultiRound && (
               <BallDisplay
                 safePlayers={safePlayers}
                 allPlayers={players}
                 totalPlayers={players.length}
               />
+            )}
+          </div>
+
+          {/* ── 핸들 돌리기 버튼 ── */}
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={handleSpin}
+              disabled={spinCount >= MAX_SPINS}
+              className={`w-full max-w-sm rounded-2xl py-4 text-lg font-bold shadow-lg transition-all active:scale-95
+                ${spinCount >= MAX_SPINS
+                  ? "cursor-not-allowed bg-bg-secondary text-text-secondary"
+                  : "bg-brand text-white hover:brightness-110"
+                }`}
+            >
+              {spinCount >= MAX_SPINS
+                ? "⚙️ 기계 작동 중..."
+                : `🔄 핸들 돌리기 (${MAX_SPINS - spinCount}번 남음)`}
+            </button>
+            {spinCount < MAX_SPINS && (
+              <p className="text-xs text-text-secondary/60">
+                💻 스페이스바로도 돌릴 수 있어요
+              </p>
             )}
           </div>
 
@@ -371,30 +396,21 @@ export default function GaraponPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          ROUND-SAFE 페이즈 (멀티라운드 중간 결과)
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════ ROUND-SAFE ══════════════════════════════ */}
       {phase === "round-safe" && justSafePlayer && (
         <div className="mx-auto max-w-4xl space-y-4">
           <div className="flex flex-col gap-4 lg:flex-row">
-            {/* 통과 발표 카드 */}
             <div className="flex-1 overflow-hidden rounded-2xl border border-border bg-bg-secondary shadow-lg">
-              {/* 초록 헤더 */}
               <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-5 text-center">
                 <div className="mb-2 text-5xl">✅</div>
                 <h2 className="text-2xl font-extrabold text-white">탈출 성공!</h2>
               </div>
-
-              {/* 탈출자 표시 */}
               <div className="px-6 py-8 text-center">
                 <div
                   className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full text-2xl font-extrabold text-white shadow-lg"
                   style={{
                     backgroundColor:
-                      PLAYER_COLORS[
-                        players.findIndex((p) => p.id === justSafePlayer.id) %
-                          PLAYER_COLORS.length
-                      ],
+                      PLAYER_COLORS[players.findIndex((p) => p.id === justSafePlayer.id) % PLAYER_COLORS.length],
                   }}
                 >
                   {players.findIndex((p) => p.id === justSafePlayer.id) + 1}
@@ -405,8 +421,6 @@ export default function GaraponPage() {
                   아직 <strong className="text-text-primary">{remainingPlayers.length}명</strong>이 남았어요
                 </p>
               </div>
-
-              {/* 계속 버튼 */}
               <div className="border-t border-border px-6 pb-6">
                 <button
                   onClick={continueGame}
@@ -416,8 +430,6 @@ export default function GaraponPage() {
                 </button>
               </div>
             </div>
-
-            {/* 탈출 공 패널 */}
             <BallDisplay
               safePlayers={safePlayers}
               allPlayers={players}
@@ -427,23 +439,17 @@ export default function GaraponPage() {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          RESULT 페이즈
-      ═══════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════ RESULT ════════════════════════════════ */}
       {phase === "result" && (
         <div className={`mx-auto space-y-6 ${isMultiRound ? "max-w-4xl" : "max-w-lg"}`}>
           <div className={`flex gap-4 ${isMultiRound ? "flex-col lg:flex-row" : "flex-col"}`}>
-            {/* 최종 결과 카드 */}
             <div className="flex-1 overflow-hidden rounded-2xl border border-border bg-bg-secondary shadow-lg">
-              {/* 헤더 */}
               <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5 text-center">
                 <Coffee size={40} className="mx-auto mb-2 text-white" />
                 <h2 className="text-2xl font-extrabold text-white">
                   {isMultiRound ? "꽝 공 출현!" : "결과 발표!"}
                 </h2>
               </div>
-
-              {/* 꽝 플레이어 */}
               <div className="px-6 py-8 text-center">
                 {loser ? (
                   <>
@@ -458,14 +464,12 @@ export default function GaraponPage() {
                   <p className="text-text-secondary">결과를 불러오는 중...</p>
                 )}
               </div>
-
-              {/* 전체 결과 목록 */}
               <div className="border-t border-border px-6 pb-6">
                 <p className="mb-3 text-sm font-semibold text-text-secondary">전체 결과</p>
                 <div className="space-y-2">
                   {players.map((p, i) => {
-                    const isLoser    = p.id === loserId;
-                    const safeOrder  = safeIds.indexOf(p.id);
+                    const isLoser   = p.id === loserId;
+                    const safeOrder = safeIds.indexOf(p.id);
                     return (
                       <div
                         key={p.id}
@@ -481,11 +485,7 @@ export default function GaraponPage() {
                         >
                           {i + 1}
                         </span>
-                        <span
-                          className={`flex-1 font-medium ${
-                            isLoser ? "text-orange-500" : "text-text-primary"
-                          }`}
-                        >
+                        <span className={`flex-1 font-medium ${isLoser ? "text-orange-500" : "text-text-primary"}`}>
                           {p.name}
                         </span>
                         <span className="text-sm">
@@ -501,8 +501,6 @@ export default function GaraponPage() {
                 </div>
               </div>
             </div>
-
-            {/* 멀티라운드: 탈출 공 패널 */}
             {isMultiRound && (
               <BallDisplay
                 safePlayers={safePlayers}
@@ -512,7 +510,6 @@ export default function GaraponPage() {
             )}
           </div>
 
-          {/* 다시 하기 */}
           <button
             onClick={resetGame}
             className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-bg-secondary py-4 text-base font-semibold text-text-primary transition-colors hover:bg-bg-primary"

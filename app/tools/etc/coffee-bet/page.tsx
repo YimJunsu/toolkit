@@ -20,7 +20,7 @@ const COFFEE_GAMES: Gallery4Item[] = [
   {
     id: "garapon",
     title: "🎰 가라폰 (구슬 뽑기)",
-    description: "일본 전통 구슬 뽑기 기계! 핸들을 돌려서 커피 살 사람을 결정하세요. 데스크탑은 마우스, 모바일은 터치로 핸들 회전!",
+    description: "일본 전통 구슬 뽑기 기계! 버튼을 4번 눌러서 커피 살 사람을 결정하세요. 클릭 또는 스페이스바로!",
     href: "/tools/etc/coffee-bet/garapon",
     image: "/resources/games/garapon.jpg",
   },

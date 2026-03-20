@@ -225,14 +225,14 @@ function CategoryDropdownItem({
 
       {/* 드롭다운 패널 */}
       {isOpen && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 rounded-xl border border-border bg-bg-primary shadow-xl">
+        <div className="absolute left-0 top-full z-50 mt-1.5 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-bg-primary shadow-xl">
           {hasTools ? (
-            /* 도구 목록 */
-            <div className="p-2" style={{ minWidth: "280px" }}>
+            /* 도구 목록 — 7개 이상이면 2열 Mega Menu */
+            <div className="p-2" style={{ minWidth: tools.length >= 7 ? "520px" : "280px" }}>
               <p className="mb-1.5 px-2 text-xs font-semibold uppercase tracking-widest text-text-secondary">
                 {category.label}
               </p>
-              <ul className="flex flex-col gap-0.5">
+              <ul className={tools.length >= 7 ? "grid grid-cols-2 gap-0.5" : "flex flex-col gap-0.5"}>
                 {tools.map((tool) => {
                   const Icon = tool.icon;
                   return (
@@ -245,9 +245,9 @@ function CategoryDropdownItem({
                         <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand/10">
                           <Icon size={14} className="text-brand" aria-hidden="true" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">{tool.label}</p>
-                          <p className="text-xs text-text-secondary">{tool.description}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-text-primary">{tool.label}</p>
+                          <p className="truncate text-xs text-text-secondary">{tool.description}</p>
                         </div>
                       </Link>
                     </li>

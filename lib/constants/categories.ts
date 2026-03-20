@@ -5,7 +5,7 @@ export interface Category {
 }
 
 export const CATEGORIES: Category[] = [
-  { id: "code",           label: "코드",            href: "/tools/code" },
+  { id: "code",           label: "Code",            href: "/tools/code" },
   { id: "data-format",    label: "Data / Format",   href: "/tools/data-format" },
   { id: "converter",      label: "Converter",        href: "/tools/converter" },
   { id: "design",         label: "Design",           href: "/tools/design" },

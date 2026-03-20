@@ -116,6 +116,21 @@ export default function AnimalRunPage() {
   }
 
   return (
+    <>
+      {/* ══════════════════════════════════════════════════════════════════════
+          레이싱 전체화면 오버레이 (racing phase) – ToolPageLayout 바깥
+          phase가 result로 바뀌면 자동으로 사라져 전체화면 해제됨
+      ══════════════════════════════════════════════════════════════════════ */}
+      {phase === "racing" && (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <AnimalRaceScene
+            players={players}
+            map={selectedMap}
+            onFinish={handleRaceFinish}
+          />
+        </div>
+      )}
+
     <ToolPageLayout
       breadcrumbs={BREADCRUMBS}
       title="동물 달리기"
@@ -239,19 +254,6 @@ export default function AnimalRunPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
-          레이싱 화면 (racing phase)
-      ══════════════════════════════════════════════════════════════════════ */}
-      {phase === "racing" && (
-        <div className="w-full">
-          <AnimalRaceScene
-            players={players}
-            map={selectedMap}
-            onFinish={handleRaceFinish}
-          />
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════════
           결과 화면 (result phase)
       ══════════════════════════════════════════════════════════════════════ */}
       {phase === "result" && (
@@ -331,5 +333,6 @@ export default function AnimalRunPage() {
         </div>
       )}
     </ToolPageLayout>
+    </>
   );
 }

@@ -31,13 +31,22 @@ export function DesktopHomePage({ activeCategories }: Props) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return null;
-    return ALL_TOOLS.filter(
+    const matched = ALL_TOOLS.filter(
       (t) =>
         t.label.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
         t.keywords?.some((kw) => kw.toLowerCase().includes(q))
     );
+    return matched;
   }, [query]);
+
+  const filteredGrouped = useMemo(() => {
+    if (!filtered) return null;
+    return ACTIVE_CATEGORIES.map((cat) => ({
+      category: cat,
+      tools: (TOOLS_BY_CATEGORY[cat.id] ?? []).filter((t) => filtered.includes(t)),
+    })).filter((g) => g.tools.length > 0);
+  }, [filtered]);
 
   const visibleCategories = activeCategory
     ? activeCategories.filter((c) => c.id === activeCategory)
@@ -112,7 +121,7 @@ export function DesktopHomePage({ activeCategories }: Props) {
 
       {/* 검색 결과 */}
       {filtered !== null ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           <p className="text-xs text-text-secondary">
             <span className="font-semibold text-text-primary">&quot;{query}&quot;</span>
             {" "}검색 결과 · <span className="font-semibold text-text-primary">{filtered.length}개</span>
@@ -123,13 +132,32 @@ export function DesktopHomePage({ activeCategories }: Props) {
               <p className="text-sm text-text-secondary">검색 결과가 없습니다</p>
             </div>
           ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {filtered.map((tool) => (
-                <li key={tool.id}>
-                  <ToolCard {...tool} />
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-col gap-8">
+              {filteredGrouped?.map(({ category, tools }) => {
+                const Icon = CATEGORY_ICON_MAP[category.id];
+                return (
+                  <div key={category.id}>
+                    <div className="mb-3 flex items-center gap-2">
+                      {Icon && <Icon size={14} className="text-brand" />}
+                      <span className="text-xs font-bold uppercase tracking-widest text-text-secondary/70">
+                        {category.label}
+                      </span>
+                      <span className="rounded-full bg-brand/10 px-1.5 py-px text-[10px] font-semibold text-brand">
+                        {tools.length}
+                      </span>
+                      <div className="flex-1 border-t border-border" />
+                    </div>
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {tools.map((tool) => (
+                        <li key={tool.id}>
+                          <ToolCard {...tool} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       ) : (

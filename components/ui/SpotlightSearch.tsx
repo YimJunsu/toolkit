@@ -12,6 +12,24 @@ const ALL_TOOLS: ToolItem[] = CATEGORIES.flatMap(
   (c) => TOOLS_BY_CATEGORY[c.id] ?? []
 );
 
+const POPULAR_KEYWORDS = ["QR코드", "UUID", "JSON", "JWT", "평수", "환율", "Base64", "Hash"];
+
+const SEARCH_HISTORY_KEY = "toolkit-search-history";
+
+function getSearchHistory(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) ?? "[]");
+  } catch { return []; }
+}
+
+function addSearchHistory(query: string) {
+  if (!query.trim() || query.length < 2) return;
+  const history = getSearchHistory();
+  const next = [query, ...history.filter((h) => h !== query)].slice(0, 5);
+  try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next)); } catch {}
+}
+
 interface SpotlightSearchProps {
   open: boolean;
   onClose: () => void;
@@ -20,6 +38,7 @@ interface SpotlightSearchProps {
 export function SpotlightSearch({ open, onClose }: SpotlightSearchProps) {
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const router = useRouter();
@@ -36,12 +55,13 @@ export function SpotlightSearch({ open, onClose }: SpotlightSearchProps) {
             )
         ).slice(0, 10);
 
-  /* 열릴 때 포커스 */
+  /* 열릴 때 포커스 + 검색 히스토리 로드 */
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
       setQuery("");
       setCursor(0);
+      setSearchHistory(getSearchHistory());
     }
   }, [open]);
 
@@ -65,8 +85,15 @@ export function SpotlightSearch({ open, onClose }: SpotlightSearchProps) {
 
   const navigate = (tool: ToolItem) => {
     toolStorage.addRecent(tool.id);
+    if (query.trim().length >= 2) addSearchHistory(query.trim());
     router.push(tool.href);
     onClose();
+  };
+
+  const applyKeyword = (kw: string) => {
+    setQuery(kw);
+    setCursor(0);
+    inputRef.current?.focus();
   };
 
   /* 커서 스크롤 유지 */
@@ -116,10 +143,53 @@ export function SpotlightSearch({ open, onClose }: SpotlightSearchProps) {
             </kbd>
           </div>
 
+          {/* 인기 키워드 & 최근 검색어 (query 없을 때) */}
+          {!query && (
+            <div className="border-b border-border px-4 py-3 flex flex-col gap-3">
+              {searchHistory.length > 0 && (
+                <div>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-secondary/60">
+                    최근 검색
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {searchHistory.map((kw) => (
+                      <button
+                        key={kw}
+                        type="button"
+                        onClick={() => applyKeyword(kw)}
+                        className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
+                      >
+                        <Search size={10} />
+                        {kw}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-secondary/60">
+                  인기 검색어
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {POPULAR_KEYWORDS.map((kw) => (
+                    <button
+                      key={kw}
+                      type="button"
+                      onClick={() => applyKeyword(kw)}
+                      className="rounded-full border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
+                    >
+                      {kw}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 결과 목록 */}
           <ul
             ref={listRef}
-            className="max-h-80 overflow-y-auto py-2"
+            className="max-h-72 overflow-y-auto py-2"
             role="listbox"
           >
             {results.length === 0 ? (
@@ -191,19 +261,24 @@ export function SpotlightSearch({ open, onClose }: SpotlightSearchProps) {
   );
 }
 
-/* ── 전역 Cmd/Ctrl+K 리스너를 추가하는 훅 ── */
+/* ── 전역 Cmd/Ctrl+K 리스너 + 커스텀 이벤트 훅 ── */
 export function useSpotlightSearch() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const keyHandler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setOpen(true);
       }
     };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const eventHandler = () => setOpen(true);
+    document.addEventListener("keydown", keyHandler);
+    document.addEventListener("open-spotlight", eventHandler);
+    return () => {
+      document.removeEventListener("keydown", keyHandler);
+      document.removeEventListener("open-spotlight", eventHandler);
+    };
   }, []);
 
   return { open, setOpen };
