@@ -119,8 +119,6 @@ function useBackgroundMusic() {
     };
 
     const st = stRef.current;
-    st.nTime = ctx.currentTime + 0.05;
-    st.bTime = ctx.currentTime + 0.05;
 
     const tick = () => {
       if (stoppedRef.current) return;
@@ -137,7 +135,24 @@ function useBackgroundMusic() {
       }
       timerRef.current = setTimeout(tick, 200);
     };
-    tick();
+
+    // ★ iOS 핵심 수정: ctx.currentTime은 "running" 상태일 때만 진행됨
+    //   suspended 상태에서 스케줄링하면 모든 노트가 과거 시간으로 기록돼 무음
+    //   → resume().then() 안에서 currentTime 기준으로 스케줄링 시작
+    const startMusic = () => {
+      if (stoppedRef.current) return;
+      st.nTime = ctx.currentTime + 0.05;
+      st.bTime = ctx.currentTime + 0.05;
+      tick();
+    };
+
+    if (ctx.state === "running") {
+      startMusic();
+    } else {
+      ctx.resume().then(startMusic).catch(() => {
+        // resume 실패 시 (이미 unmount 등) 무시
+      });
+    }
 
     return () => {
       stoppedRef.current = true;

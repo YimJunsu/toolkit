@@ -50,6 +50,11 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('toolkit-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+          }}
+        />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#6366f1" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

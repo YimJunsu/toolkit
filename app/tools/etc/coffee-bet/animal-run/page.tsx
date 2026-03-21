@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Rabbit } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
@@ -106,6 +106,19 @@ export default function AnimalRunPage() {
   // 인트로 팝업 (레이싱 시작 전 안내)
   const [showIntroPopup, setShowIntroPopup] = useState(false);
 
+  // ── 세로모드 감지 (가로모드 안내용) ────────────────────────────────────────
+  const [isPortrait, setIsPortrait] = useState(false);
+  useEffect(() => {
+    const check = () => setIsPortrait(window.innerHeight > window.innerWidth);
+    check();
+    window.addEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+    };
+  }, []);
+
   // ── 다시 하기 ─────────────────────────────────────────────────────────────
   function handleRestart() {
     setPlayers(createDefaultPlayers());
@@ -174,7 +187,11 @@ export default function AnimalRunPage() {
 
                 <button
                   onClick={() => {
-                    // 모바일 오디오 잠금 해제: user gesture 내에서 AudioContext 생성/재개
+                    // ★ 반드시 동기(sync) 핸들러여야 함
+                    // iOS Safari: async 핸들러에서 첫 await 이후 user gesture 컨텍스트 만료
+                    //             → AudioContext unlock이 무효화됨
+
+                    // 1) iOS 오디오 완전 잠금 해제 (동기)
                     if (typeof window !== "undefined") {
                       type W = Window & { __gameAudioCtx?: AudioContext };
                       const W = window as W;
@@ -185,11 +202,25 @@ export default function AnimalRunPage() {
                           if (!W.__gameAudioCtx || W.__gameAudioCtx.state === "closed") {
                             W.__gameAudioCtx = new Ctor();
                           }
-                          W.__gameAudioCtx.resume().catch(() => {});
+                          const ctx = W.__gameAudioCtx;
+                          // silent buffer start(0) → iOS audio lock 완전 해제
+                          const buf = ctx.createBuffer(1, 1, 22050);
+                          const src = ctx.createBufferSource();
+                          src.buffer = buf;
+                          src.connect(ctx.destination);
+                          src.start(0);
                         } catch {}
                       }
                     }
+
+                    // 2) 팝업 닫기 (동기) — 이 시점에 iOS gesture 컨텍스트 유효
                     setShowIntroPopup(false);
+
+                    // 3) 가로모드 lock — await 없이 fire-and-forget (iOS는 어차피 미지원)
+                    try {
+                      const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+                      orient.lock?.("landscape").catch(() => {});
+                    } catch {}
                   }}
                   className="mt-8 w-full rounded-2xl bg-brand py-4 text-lg font-black text-white shadow-lg shadow-brand/30 transition-all hover:brightness-110 active:scale-[0.98]"
                 >
@@ -199,11 +230,22 @@ export default function AnimalRunPage() {
             </div>
           ) : (
             /* ── 레이스 씬 ──────────────────────────────────────── */
-            <AnimalRaceScene
-              players={players}
-              map={selectedMap}
-              onFinish={handleRaceFinish}
-            />
+            <div className="relative h-full w-full">
+              <AnimalRaceScene
+                players={players}
+                map={selectedMap}
+                onFinish={handleRaceFinish}
+              />
+              {/* 세로모드 안내 overlay (iOS Safari는 자동 가로 불가 → 안내) */}
+              {isPortrait && (
+                <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm">
+                  <p className="text-6xl" style={{ animation: "spin 2s linear infinite" }}>📱</p>
+                  <style>{`@keyframes spin{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(20deg)}}`}</style>
+                  <p className="mt-5 text-xl font-black text-white">기기를 가로로 돌려주세요</p>
+                  <p className="mt-2 text-sm text-white/60">가로 모드에서 레이스를 즐기세요!</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -348,7 +390,7 @@ export default function AnimalRunPage() {
           {finishOrder.length > 0 && (
             <div
               style={{ animation: "arPop .55s cubic-bezier(.175,.885,.32,1.275) both" }}
-              className="relative overflow-hidden rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-br from-yellow-500/20 via-amber-400/10 to-transparent p-5 text-center"
+              className="relative overflow-hidden rounded-2xl border-2 border-yellow-500/50 bg-linear-to-br from-yellow-500/20 via-amber-400/10 to-transparent p-5 text-center"
             >
               {/* 배경 파티클 */}
               {["✨","⭐","🌟","💫","✨"].map((e, i) => (
