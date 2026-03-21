@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Gamepad2, Plus, Minus, RotateCcw, Coffee, Shuffle } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
@@ -231,6 +231,19 @@ export default function GaraponPage() {
 
   const loser = players.find((p) => p.id === loserId);
 
+  // ── 꽝 약올리기 메시지 ────────────────────────────────────────────────────
+  const LOSER_TAUNTS_GARAPON = [
+    "꽝이 본인을 선택했습니다. 영예로운 순간 😇",
+    "지갑 두껍게 챙기셨죠? 아니면 지금 준비하세요 💳",
+    "운명은 바꿀 수 없어요. 커피나 사세요.",
+    "모두가 알고 있었어요. 본인만 몰랐을 뿐 👀",
+    "괜찮아요, 커피 한 잔 쏘면 인기 올라요 (거짓말)",
+    "어떻게 이게 가능하죠? 대단한 꽝 실력이에요",
+    "이 순간을 평생 기억하세요. 우린 이미 캡처했어요 📸",
+  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loserTaunt = useMemo(() => LOSER_TAUNTS_GARAPON[Math.floor(Math.random() * LOSER_TAUNTS_GARAPON.length)], [loserId]);
+
   return (
     <ToolPageLayout
       breadcrumbs={BREADCRUMBS}
@@ -441,31 +454,51 @@ export default function GaraponPage() {
 
       {/* ════════════════════════════ RESULT ════════════════════════════════ */}
       {phase === "result" && (
-        <div className={`mx-auto space-y-6 ${isMultiRound ? "max-w-4xl" : "max-w-lg"}`}>
+        <div className={`mx-auto space-y-5 ${isMultiRound ? "max-w-4xl" : "max-w-lg"}`}>
+          <style>{`
+            @keyframes grPop{from{transform:scale(.3) rotate(-10deg);opacity:0}70%{transform:scale(1.08)}to{transform:scale(1);opacity:1}}
+            @keyframes grShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px) rotate(-2deg)}40%{transform:translateX(8px) rotate(2deg)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+            @keyframes grFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+            @keyframes grFadeUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+            @keyframes grPulse{0%,100%{box-shadow:0 0 0 0 rgba(251,146,60,.45)}50%{box-shadow:0 0 0 14px rgba(251,146,60,0)}}
+            @keyframes grSpin{from{transform:rotate(-15deg) scale(.8);opacity:0}to{transform:rotate(0deg) scale(1);opacity:1}}
+          `}</style>
+
           <div className={`flex gap-4 ${isMultiRound ? "flex-col lg:flex-row" : "flex-col"}`}>
-            <div className="flex-1 overflow-hidden rounded-2xl border border-border bg-bg-secondary shadow-lg">
-              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5 text-center">
-                <Coffee size={40} className="mx-auto mb-2 text-white" />
-                <h2 className="text-2xl font-extrabold text-white">
-                  {isMultiRound ? "꽝 공 출현!" : "결과 발표!"}
-                </h2>
-              </div>
-              <div className="px-6 py-8 text-center">
-                {loser ? (
-                  <>
-                    <div className="mb-4 text-6xl">☕</div>
-                    <p className="text-xl font-semibold text-text-secondary">오늘의 커피 당번은...</p>
-                    <p className="mt-3 text-4xl font-extrabold text-text-primary">{loser.name}</p>
-                    <p className="mt-3 text-lg font-bold text-orange-500">
-                      ☕ {loser.name}님! 커피 사세요!
+            <div className="flex-1 space-y-4">
+
+              {/* ☕ 꽝 주인공 메인 카드 */}
+              {loser && (
+                <div
+                  style={{ animation: "grShake .7s ease-out both, grPulse 2s ease-in-out .7s infinite" }}
+                  className="overflow-hidden rounded-2xl border-2 border-orange-400/60 bg-linear-to-br from-orange-500/15 to-red-500/10"
+                >
+                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-center">
+                    <Coffee size={32} className="mx-auto mb-1 text-white" />
+                    <h2 className="text-xl font-extrabold text-white">
+                      {isMultiRound ? "💥 꽝 공 출현!" : "💥 결과 발표!"}
+                    </h2>
+                  </div>
+                  <div className="px-6 py-6 text-center">
+                    <p style={{ animation: "grFloat 1.5s ease-in-out infinite" }} className="text-5xl">☕</p>
+                    <p className="mt-2 text-xs font-black tracking-[.3em] text-orange-400/70 uppercase">꽝 · 커피 당번 확정</p>
+                    <p className="mt-1 text-3xl font-extrabold text-text-primary">{loser.name}</p>
+                    <div className="mt-4 rounded-xl border border-orange-400/20 bg-orange-500/10 px-4 py-3">
+                      <p className="text-sm font-semibold text-text-primary">{loserTaunt}</p>
+                    </div>
+                    <p className="mt-2 text-xs text-text-secondary/60">
+                      이건 진짜예요. 도망가셔도 우린 압니다 👀
                     </p>
-                  </>
-                ) : (
-                  <p className="text-text-secondary">결과를 불러오는 중...</p>
-                )}
-              </div>
-              <div className="border-t border-border px-6 pb-6">
-                <p className="mb-3 text-sm font-semibold text-text-secondary">전체 결과</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 📋 전체 결과 리스트 */}
+              <div
+                style={{ animation: "grFadeUp .4s ease-out .5s both" }}
+                className="rounded-2xl border border-border bg-bg-secondary p-5"
+              >
+                <p className="mb-3 text-sm font-bold text-text-primary">📋 전체 결과</p>
                 <div className="space-y-2">
                   {players.map((p, i) => {
                     const isLoser   = p.id === loserId;
@@ -473,7 +506,7 @@ export default function GaraponPage() {
                     return (
                       <div
                         key={p.id}
-                        className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
+                        className={`flex items-center gap-3 rounded-xl px-4 py-2.5 ${
                           isLoser
                             ? "border border-orange-400/40 bg-orange-500/10"
                             : "border border-border bg-bg-primary"
@@ -485,12 +518,12 @@ export default function GaraponPage() {
                         >
                           {i + 1}
                         </span>
-                        <span className={`flex-1 font-medium ${isLoser ? "text-orange-500" : "text-text-primary"}`}>
+                        <span className={`flex-1 text-sm font-semibold ${isLoser ? "text-orange-400" : "text-text-primary"}`}>
                           {p.name}
                         </span>
                         <span className="text-sm">
                           {isLoser
-                            ? "☕ 꽝!"
+                            ? "☕ 꽝! 커피셔틀"
                             : isMultiRound
                             ? `✅ ${safeOrder + 1}번째 탈출`
                             : "✅ 통과"}
@@ -501,6 +534,7 @@ export default function GaraponPage() {
                 </div>
               </div>
             </div>
+
             {isMultiRound && (
               <BallDisplay
                 safePlayers={safePlayers}
@@ -512,7 +546,7 @@ export default function GaraponPage() {
 
           <button
             onClick={resetGame}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-bg-secondary py-4 text-base font-semibold text-text-primary transition-colors hover:bg-bg-primary"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-bg-secondary py-4 text-base font-semibold text-text-primary transition-colors hover:bg-bg-primary active:scale-[0.98]"
           >
             <RotateCcw size={18} />
             다시 하기

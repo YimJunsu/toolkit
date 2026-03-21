@@ -48,6 +48,123 @@ interface Obstacle  { x: number; z: number; }
 interface RankEntry { id: number; name: string; z: number; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// 배경음악 훅 – Web Audio API 프로시저럴 생성 (저작권 없음, AdSense 안전)
+// C장조 펜타토닉 스케일 기반 신나는 루프 멜로디 + 베이스
+// ═══════════════════════════════════════════════════════════════════════════════
+function useBackgroundMusic() {
+  const ctxRef   = useRef<AudioContext | null>(null);
+  const gainRef  = useRef<GainNode | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stRef    = useRef({ nIdx: 0, nTime: 0, bIdx: 0, bTime: 0 });
+  const stoppedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    stoppedRef.current = false;
+
+    // 모바일 대응: 팝업 버튼 클릭 시 미리 생성된 AudioContext 재사용
+    // (iOS/Android는 useEffect가 비동기이므로 user gesture 내 생성된 ctx 사용)
+    type W = Window & { __gameAudioCtx?: AudioContext };
+    const primed = (window as W).__gameAudioCtx;
+    const useExisting = !!primed && primed.state !== "closed";
+
+    let ctx: AudioContext;
+    let ownsCtx: boolean;
+    if (useExisting) {
+      ctx = primed!;
+      ownsCtx = false;
+    } else {
+      const C = window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      ctx = new C();
+      ownsCtx = true;
+    }
+    ctxRef.current = ctx;
+    ctx.resume().catch(() => {});
+
+    const master = ctx.createGain();
+    master.gain.value = 0.55;
+    master.connect(ctx.destination);
+    gainRef.current = master;
+
+    // 148 BPM
+    const B = 60 / 148;
+
+    // C장조 펜타토닉 신나는 멜로디 패턴 [주파수Hz, 박자수]
+    const MEL: [number, number][] = [
+      [523, 0.5], [659, 0.5], [784, 0.5], [659, 0.5],
+      [523, 0.5], [659, 1.0],
+      [523, 0.5], [440, 0.5], [392, 0.5], [440, 0.5],
+      [523, 0.5], [659, 0.5], [784, 1.0],
+      [880, 0.5], [784, 0.5], [659, 0.5], [784, 1.0],
+      [659, 0.5], [523, 0.5], [440, 0.5], [392, 0.5],
+      [523, 1.5],
+    ];
+    // 베이스 패턴 (C3 G3 F3 G3)
+    const BASS: [number, number][] = [
+      [130.81, 2], [196.00, 2], [174.61, 2], [196.00, 2],
+    ];
+
+    const playN = (f: number, s: number, d: number, v: number, t: OscillatorType = "square") => {
+      if (stoppedRef.current) return;
+      try {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = t; o.frequency.value = f;
+        g.gain.setValueAtTime(v, s);
+        g.gain.exponentialRampToValueAtTime(0.001, s + d - 0.02);
+        o.connect(g); g.connect(master);
+        o.start(s); o.stop(s + d);
+      } catch { /* 언마운트 후 ctx closed 예외 무시 */ }
+    };
+
+    const st = stRef.current;
+    st.nTime = ctx.currentTime + 0.05;
+    st.bTime = ctx.currentTime + 0.05;
+
+    const tick = () => {
+      if (stoppedRef.current) return;
+      const ahead = ctx.currentTime + 0.5;
+      while (st.nTime < ahead) {
+        const [f, d] = MEL[st.nIdx++ % MEL.length];
+        playN(f, st.nTime, d * B, 0.042);
+        st.nTime += d * B;
+      }
+      while (st.bTime < ahead) {
+        const [f, d] = BASS[st.bIdx++ % BASS.length];
+        playN(f, st.bTime, d * B * 0.88, 0.08, "sine");
+        st.bTime += d * B;
+      }
+      timerRef.current = setTimeout(tick, 200);
+    };
+    tick();
+
+    return () => {
+      stoppedRef.current = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      // 직접 생성한 ctx만 닫음 (shared primed ctx는 page가 관리)
+      if (ownsCtx) setTimeout(() => ctx.close().catch(() => {}), 400);
+    };
+  }, []);
+
+  // 레이스 종료 시 페이드 아웃
+  const fadeOut = useCallback(() => {
+    if (stoppedRef.current) return;
+    stoppedRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const g = gainRef.current;
+    const ctx = ctxRef.current;
+    if (!g || !ctx || ctx.state === "closed") return;
+    try {
+      g.gain.setValueAtTime(g.gain.value, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.0);
+    } catch { /* */ }
+  }, []);
+
+  return { fadeOut };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Web Audio API 사운드 훅
 // ═══════════════════════════════════════════════════════════════════════════════
 function useSounds() {
@@ -55,11 +172,18 @@ function useSounds() {
   const ctx = useCallback((): AudioContext | null => {
     if (typeof window === "undefined") return null;
     if (!actxRef.current) {
-      try {
-        const C = window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        actxRef.current = new C();
-      } catch { return null; }
+      // 모바일 대응: 미리 생성된 primed ctx 우선 사용
+      type W = Window & { __gameAudioCtx?: AudioContext };
+      const primed = (window as W).__gameAudioCtx;
+      if (primed && primed.state !== "closed") {
+        actxRef.current = primed;
+      } else {
+        try {
+          const C = window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          actxRef.current = new C();
+        } catch { return null; }
+      }
     }
     return actxRef.current;
   }, []);
@@ -80,7 +204,14 @@ function useSounds() {
   const playFanfare = useCallback(() =>
     [523,659,784,1047].forEach((f,i) => setTimeout(() => tone(f,.18,.26), i*150)), [tone]);
 
-  useEffect(() => () => { actxRef.current?.close().catch(()=>{}); }, []);
+  useEffect(() => () => {
+    // shared primed ctx는 닫지 않음
+    type W = Window & { __gameAudioCtx?: AudioContext };
+    const primed = typeof window !== "undefined" ? (window as W).__gameAudioCtx : undefined;
+    if (actxRef.current && actxRef.current !== primed) {
+      actxRef.current.close().catch(() => {});
+    }
+  }, []);
   return { playStart, playHit, playFanfare };
 }
 
@@ -641,7 +772,8 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
   const [rankList, setRankList]   = useState<RankEntry[]>([]);
   const [countdown, setCountdown] = useState<number | "GO" | null>(3);
   const [raceOver, setRaceOver]   = useState<number[] | null>(null);
-  const sounds = useSounds();
+  const sounds  = useSounds();
+  const { fadeOut } = useBackgroundMusic();
 
   // 카운트다운: 3 → 2 → 1 → GO! → null (레이스 시작)
   useEffect(() => {
@@ -678,10 +810,11 @@ export default function AnimalRaceScene({ players, map, onFinish }: Props) {
     if (countdown === "GO") sounds.playStart();
   }, [countdown, sounds]);
 
-  // 레이스 완료 내부 핸들러 (오버레이 표시용)
+  // 레이스 완료 내부 핸들러 (오버레이 표시용 + 음악 페이드 아웃)
   const handleSceneFinish = useCallback((ids: number[]) => {
     setRaceOver(ids);
-  }, []);
+    fadeOut();
+  }, [fadeOut]);
 
   const idToIndex = useMemo(() => {
     const m = new Map<number, number>();

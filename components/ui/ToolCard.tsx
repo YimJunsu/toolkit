@@ -42,7 +42,7 @@ export function ToolCard({ id, label, description, href, icon: Icon, badge }: To
           <h3 className="text-sm font-semibold text-text-primary transition-colors duration-200 group-hover:text-brand">
             {label}
           </h3>
-          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-text-secondary">{description}</p>
+          <p className="mt-1 line-clamp-2 min-h-[2.5rem] text-xs leading-relaxed text-text-secondary">{description}</p>
         </div>
       </Link>
 

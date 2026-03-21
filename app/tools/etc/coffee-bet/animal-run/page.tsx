@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Rabbit } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
@@ -94,6 +94,7 @@ export default function AnimalRunPage() {
   function handleStartRace() {
     setFinishOrder([]);
     setPhase("racing");
+    setShowIntroPopup(true);
   }
 
   // ── 레이스 완료 콜백 (scene.tsx에서 호출됨) ────────────────────────────────
@@ -101,6 +102,9 @@ export default function AnimalRunPage() {
     setFinishOrder(orderedIds);
     setPhase("result");
   }
+
+  // 인트로 팝업 (레이싱 시작 전 안내)
+  const [showIntroPopup, setShowIntroPopup] = useState(false);
 
   // ── 다시 하기 ─────────────────────────────────────────────────────────────
   function handleRestart() {
@@ -115,6 +119,19 @@ export default function AnimalRunPage() {
     return players.find((p) => p.id === id)?.name ?? `플레이어 ${id + 1}`;
   }
 
+  // ── 꼴찌 약올리기 메시지 ──────────────────────────────────────────────────
+  const LOSER_TAUNTS = [
+    "열심히 달렸는데... 결과가 이래서 어쩌죠 😂",
+    "도망가도 소용없어요, 우린 다 봤어요 👀",
+    "실력 문제 아니에요. 그냥 운이 없으신 거예요 (전혀 위로 안 됨)",
+    "카드 챙기셨죠? 두꺼운 걸로요 💳",
+    "최선을 다하셨습니다. 근데 꼴찌는 꼴찌 ☕",
+    "이거 어떻게 꼴찌가 될 수 있죠? 신기하네요 진짜",
+    "오늘 점심 메뉴는 자책... 아니 아메리카노로 결정!",
+  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loserTaunt = useMemo(() => LOSER_TAUNTS[Math.floor(Math.random() * LOSER_TAUNTS.length)], [finishOrder.length]);
+
   return (
     <>
       {/* ══════════════════════════════════════════════════════════════════════
@@ -123,11 +140,71 @@ export default function AnimalRunPage() {
       ══════════════════════════════════════════════════════════════════════ */}
       {phase === "racing" && (
         <div className="fixed inset-0 z-[9999] bg-black">
-          <AnimalRaceScene
-            players={players}
-            map={selectedMap}
-            onFinish={handleRaceFinish}
-          />
+          {showIntroPopup ? (
+            /* ── 안내 팝업 ──────────────────────────────────────── */
+            <div className="flex h-full w-full items-center justify-center bg-black/80 p-4">
+              <div className="w-full max-w-md rounded-3xl border border-white/20 bg-[#0f1117] p-8 text-center shadow-2xl">
+                <p className="mb-3 text-5xl">🏁</p>
+                <h2 className="text-2xl font-black text-white">동물 달리기</h2>
+                <p className="mt-1 text-sm text-white/50">레이스를 시작하기 전에 알아두세요!</p>
+
+                <div className="mt-6 space-y-3 text-left">
+                  <div className="flex items-start gap-3 rounded-2xl bg-white/5 p-4">
+                    <span className="text-2xl">⚡</span>
+                    <div>
+                      <p className="text-sm font-bold text-white">부스트 구간</p>
+                      <p className="mt-0.5 text-xs text-white/55">초록 발광 구간을 통과하면 순간 가속!</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-2xl bg-white/5 p-4">
+                    <span className="text-2xl">🧱</span>
+                    <div>
+                      <p className="text-sm font-bold text-white">랜덤 장애물</p>
+                      <p className="mt-0.5 text-xs text-white/55">레이스 곳곳에 랜덤 장애물이 배치돼 있어요. 충돌하면 잠시 멈춥니다!</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-2xl bg-white/5 p-4">
+                    <span className="text-2xl">☕</span>
+                    <div>
+                      <p className="text-sm font-bold text-white">꼴찌 주의</p>
+                      <p className="mt-0.5 text-xs text-white/55">꼴찌가 되면 오늘의 커피는 당신 몫!</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    // 모바일 오디오 잠금 해제: user gesture 내에서 AudioContext 생성/재개
+                    if (typeof window !== "undefined") {
+                      type W = Window & { __gameAudioCtx?: AudioContext };
+                      const W = window as W;
+                      const Ctor = window.AudioContext ||
+                        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                      if (Ctor) {
+                        try {
+                          if (!W.__gameAudioCtx || W.__gameAudioCtx.state === "closed") {
+                            W.__gameAudioCtx = new Ctor();
+                          }
+                          W.__gameAudioCtx.resume().catch(() => {});
+                        } catch {}
+                      }
+                    }
+                    setShowIntroPopup(false);
+                  }}
+                  className="mt-8 w-full rounded-2xl bg-brand py-4 text-lg font-black text-white shadow-lg shadow-brand/30 transition-all hover:brightness-110 active:scale-[0.98]"
+                >
+                  🚀 시작!
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ── 레이스 씬 ──────────────────────────────────────── */
+            <AnimalRaceScene
+              players={players}
+              map={selectedMap}
+              onFinish={handleRaceFinish}
+            />
+          )}
         </div>
       )}
 
@@ -257,73 +334,92 @@ export default function AnimalRunPage() {
           결과 화면 (result phase)
       ══════════════════════════════════════════════════════════════════════ */}
       {phase === "result" && (
-        <div className="mx-auto max-w-lg space-y-6">
-          {/* 타이틀 */}
-          <div className="text-center">
-            <h2 className="text-3xl font-black text-text-primary">
-              🏁 결과 발표!
-            </h2>
-          </div>
+        <div className="mx-auto max-w-lg space-y-5">
+          <style>{`
+            @keyframes arPop{from{transform:scale(.3) rotate(-12deg);opacity:0}70%{transform:scale(1.1) rotate(1deg)}to{transform:scale(1) rotate(0);opacity:1}}
+            @keyframes arShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px) rotate(-2deg)}40%{transform:translateX(7px) rotate(2deg)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+            @keyframes arFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+            @keyframes arFadeUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+            @keyframes arSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+            @keyframes arPulseRed{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)}50%{box-shadow:0 0 0 12px rgba(248,113,113,0)}}
+          `}</style>
 
-          {/* 꼴찌 커피 당번 강조 */}
+          {/* 🏆 1등 winner 카드 */}
           {finishOrder.length > 0 && (
-            <div className="rounded-2xl border-2 border-red-400 bg-red-50/10 p-6 text-center">
-              <p className="text-4xl">☕</p>
-              <p className="mt-2 text-xl font-black text-red-400">
-                {getPlayerName(finishOrder[finishOrder.length - 1])}님이 커피 사세요!
-              </p>
-              <p className="mt-1 text-sm text-text-secondary">
-                꼴찌가 오늘의 커피 당번입니다 😂
-              </p>
+            <div
+              style={{ animation: "arPop .55s cubic-bezier(.175,.885,.32,1.275) both" }}
+              className="relative overflow-hidden rounded-2xl border-2 border-yellow-500/50 bg-gradient-to-br from-yellow-500/20 via-amber-400/10 to-transparent p-5 text-center"
+            >
+              {/* 배경 파티클 */}
+              {["✨","⭐","🌟","💫","✨"].map((e, i) => (
+                <span key={i} aria-hidden style={{
+                  position:"absolute", pointerEvents:"none", userSelect:"none",
+                  left:`${8+i*20}%`, top:`${8+i*12}%`, fontSize:"1.1rem", opacity:.55,
+                  animation:`arFloat ${1.7+i*.25}s ease-in-out infinite ${i*.35}s`,
+                }}>{e}</span>
+              ))}
+              <p style={{ animation: "arFloat 2s ease-in-out infinite" }} className="text-4xl">🏆</p>
+              <p className="mt-1 text-[10px] font-black tracking-[.3em] text-yellow-400 uppercase">1등 · Winner</p>
+              <p className="mt-1 text-2xl font-black text-text-primary">{getPlayerName(finishOrder[0])}</p>
+              <p className="mt-1 text-sm text-yellow-500/80">🎉 오늘 커피 공짜! 기분 좋으시죠?</p>
             </div>
           )}
 
-          {/* 전체 순위 목록 */}
-          <div className="rounded-2xl border border-border bg-bg-secondary p-6">
-            <h3 className="mb-4 font-bold text-text-primary">📊 전체 순위</h3>
-            <ol className="space-y-3">
-              {finishOrder.map((playerId, rankIdx) => {
-                const isLast = rankIdx === finishOrder.length - 1;
-                const badgeClass =
-                  RANK_BADGE_CLASSES[rankIdx] ?? RANK_BADGE_CLASSES[3];
-                const animalEmoji = ANIMALS[playerId]?.emoji ?? "🐾";
+          {/* ☕ 꼴찌 수치 카드 */}
+          {finishOrder.length > 0 && (
+            <div
+              style={{ animation: "arShake .65s ease-out .35s both, arPulseRed 1.8s ease-in-out .9s infinite" }}
+              className="rounded-2xl border-2 border-red-400/60 bg-red-500/10 p-6 text-center"
+            >
+              <p style={{ animation: "arFloat 1.4s ease-in-out infinite .2s" }} className="text-5xl">☕</p>
+              <p className="mt-2 text-[10px] font-black tracking-[.3em] text-red-400/70 uppercase">Loser · 커피 셔틀 확정</p>
+              <p className="mt-1 text-3xl font-black text-red-400">{getPlayerName(finishOrder[finishOrder.length - 1])}</p>
+              <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-2.5">
+                <p className="text-sm font-semibold text-text-primary">{loserTaunt}</p>
+              </div>
+              <p className="mt-2 text-xs text-text-secondary/60">꼴찌 공식 인증 🔖 · 커피 한 잔 부탁드려요 🥹</p>
+            </div>
+          )}
 
+          {/* 📊 전체 순위 */}
+          <div
+            style={{ animation: "arFadeUp .4s ease-out .6s both" }}
+            className="rounded-2xl border border-border bg-bg-secondary p-5"
+          >
+            <h3 className="mb-3 text-sm font-bold text-text-primary">📊 전체 순위</h3>
+            <ol className="space-y-2">
+              {finishOrder.map((playerId, rankIdx) => {
+                const isFirst = rankIdx === 0;
+                const isLast  = rankIdx === finishOrder.length - 1;
+                const badge   = RANK_BADGE_CLASSES[rankIdx] ?? RANK_BADGE_CLASSES[3];
+                const emoji   = ANIMALS[playerId]?.emoji ?? "🐾";
+                const MEDALS  = ["🥇","🥈","🥉"];
                 return (
                   <li
                     key={playerId}
-                    className={`flex items-center gap-4 rounded-xl px-4 py-3 ${
-                      isLast
-                        ? "bg-red-50/10 ring-1 ring-red-400/40"
-                        : "bg-white/5"
+                    className={`flex items-center gap-3 rounded-xl px-4 py-2.5 transition-all ${
+                      isFirst ? "bg-yellow-500/10 ring-1 ring-yellow-500/30"
+                      : isLast ? "bg-red-500/10 ring-1 ring-red-400/30"
+                      : "bg-white/5"
                     }`}
                   >
-                    {/* 순위 뱃지 */}
-                    <span
-                      className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-black ${badgeClass}`}
-                    >
+                    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${badge}`}>
                       {rankIdx + 1}
                     </span>
-                    {/* 동물 이모지 */}
-                    <span className="text-xl">{animalEmoji}</span>
-                    {/* 플레이어 이름 */}
-                    <span
-                      className={`flex-1 font-semibold ${
-                        isLast ? "text-red-400" : "text-text-primary"
-                      }`}
-                    >
+                    <span className="text-lg">{emoji}</span>
+                    <span className={`flex-1 text-sm font-semibold ${isLast ? "text-red-400" : isFirst ? "text-yellow-400" : "text-text-primary"}`}>
                       {getPlayerName(playerId)}
                     </span>
-                    {/* 꼴찌 표시 */}
-                    {isLast && (
-                      <span className="text-sm text-red-400">☕ 커피당번</span>
-                    )}
+                    <span className="text-sm">
+                      {isLast ? "☕ 당번" : MEDALS[rankIdx] ?? ""}
+                    </span>
                   </li>
                 );
               })}
             </ol>
           </div>
 
-          {/* 다시 하기 버튼 */}
+          {/* 다시 하기 */}
           <button
             onClick={handleRestart}
             className="w-full rounded-2xl border-2 border-brand py-4 text-lg font-bold text-brand transition-all hover:bg-brand hover:text-white active:scale-[0.98]"
