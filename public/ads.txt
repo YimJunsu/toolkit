@@ -1,0 +1,7 @@
+# Google AdSense ads.txt
+# AdSense 승인 후 아래 줄을 교체하세요.
+# pub ID는 AdSense 계정 > 계정 > 계정 정보에서 확인 가능합니다.
+# 형식: google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+#
+# 예시 (실제 pub ID로 교체 필요):
+# google.com, pub-1234567890123456, DIRECT, f08c47fec0942fa0
