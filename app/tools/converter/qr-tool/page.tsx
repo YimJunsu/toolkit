@@ -15,12 +15,15 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  ImageIcon,
+  AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import QRCode from "qrcode";
 import jsQR from "jsqr";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 import { useClipboard } from "@/hooks/useClipboard";
+import { hexToRgb, isValidHex } from "@/lib/utils/colorUtils";
 
 const BREADCRUMBS = [
   { label: "홈", href: "/" },
@@ -47,8 +50,78 @@ interface ScanResult {
   otp: OtpAuthParams | null;
 }
 
+const DEFAULT_FG = "#292A47";
+const DEFAULT_BG = "#ffffff";
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
 function makeId() {
   return Math.random().toString(36).slice(2, 9);
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("이미지를 불러올 수 없습니다"));
+    img.src = src;
+  });
+}
+
+/** WCAG 상대 휘도 */
+function relLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const ch = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * ch(rgb.r) + 0.7152 * ch(rgb.g) + 0.0722 * ch(rgb.b);
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * QR 중앙에 로고를 합성한다.
+ * 로고 뒤에 배경색 패치를 먼저 깔아야 모듈과 로고가 겹쳐 경계가 뭉개지지 않는다.
+ */
+async function drawLogo(
+  canvas: HTMLCanvasElement,
+  src: string,
+  scale: number,
+  padColor: string,
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const img = await loadImage(src);
+  const box = canvas.width * scale;
+  // SVG 등 intrinsic 크기가 없는 이미지는 정사각으로 취급
+  const iw = img.naturalWidth || box;
+  const ih = img.naturalHeight || box;
+  const ratio = Math.min(box / iw, box / ih);
+  const w = iw * ratio;
+  const h = ih * ratio;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const pad = box * 0.12;
+
+  ctx.fillStyle = padColor;
+  ctx.fillRect(cx - w / 2 - pad, cy - h / 2 - pad, w + pad * 2, h + pad * 2);
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+}
+
+/**
+ * 만들어진 QR을 jsQR로 되읽어 실제 스캔 가능한지 확인한다.
+ * 로고 크기·명암비 임계값을 추측하는 대신 결과물을 직접 검증한다.
+ * inversionAttempts: 반전 QR을 못 읽는 스캐너가 많으므로 반전 시도 없이 판정.
+ */
+function verifyDecodable(canvas: HTMLCanvasElement): boolean {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return true;
+  const px = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return !!jsQR(px.data, px.width, px.height, { inversionAttempts: "dontInvert" });
 }
 
 function parseOtpAuth(uri: string): OtpAuthParams | null {
@@ -325,6 +398,16 @@ export default function QrToolPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrSize, setQrSize] = useState(256);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [fgColor, setFgColor] = useState(DEFAULT_FG);
+  const [bgColor, setBgColor] = useState(DEFAULT_BG);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [logoName, setLogoName] = useState("");
+  // 18%는 최소 버전(v1) QR에서도 디코딩 확인된 값. 그 이상은 콘텐츠 길이에 따라
+  // 안전 여부가 갈리므로 정적으로 제한하지 않고 verifyDecodable로 실측 판정한다.
+  const [logoScale, setLogoScale] = useState(0.18);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [scanUnreadable, setScanUnreadable] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Scanner state
   const [scanMode, setScanMode] = useState<ScanMode>("upload");
@@ -341,6 +424,8 @@ export default function QrToolPage() {
   const animFrameRef = useRef<number | null>(null);
   const isScanningRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const hasGeneratedRef = useRef(false);
 
   const stopCamera = useCallback(() => {
     isScanningRef.current = false;
@@ -448,19 +533,80 @@ export default function QrToolPage() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!inputText.trim()) return;
     setIsGenerating(true);
+    hasGeneratedRef.current = true;
     try {
-      const dataUrl = await QRCode.toDataURL(inputText.trim(), {
+      // 타이핑 중인 미완성 HEX는 무시하고 기본색으로 그린다
+      const dark = isValidHex(fgColor) ? fgColor : DEFAULT_FG;
+      const light = isValidHex(bgColor) ? bgColor : DEFAULT_BG;
+
+      const canvas = document.createElement("canvas");
+      await QRCode.toCanvas(canvas, inputText.trim(), {
         width: qrSize,
         margin: 2,
-        color: { dark: "#292A47", light: "#ffffff" },
+        // 로고가 모듈 일부를 가리므로 복원율 30%인 H로 올린다
+        errorCorrectionLevel: logoDataUrl ? "H" : "M",
+        color: { dark, light },
       });
-      setQrDataUrl(dataUrl);
+
+      if (logoDataUrl) {
+        await drawLogo(canvas, logoDataUrl, logoScale, light);
+      }
+
+      setScanUnreadable(!verifyDecodable(canvas));
+      setQrDataUrl(canvas.toDataURL("image/png"));
+      setGenerateError(null);
+    } catch (err) {
+      // 실패했는데 이전 QR을 남겨두면 사용자가 지금 입력한 내용이 담긴 줄 알고
+      // 그대로 내려받는다. 반드시 지우고 이유를 보여준다.
+      setQrDataUrl(null);
+      setScanUnreadable(false);
+      const tooBig = err instanceof Error && /too big/i.test(err.message);
+      setGenerateError(
+        tooBig
+          ? `내용이 너무 깁니다. QR 한 장에 담을 수 있는 한도를 넘었습니다${
+              logoDataUrl ? " (로고를 쓰면 한도가 더 낮아집니다)" : ""
+            }`
+          : "QR 코드를 만들지 못했습니다. 로고 이미지가 손상되지 않았는지 확인해 주세요",
+      );
     } finally {
       setIsGenerating(false);
     }
+  }, [inputText, qrSize, fgColor, bgColor, logoDataUrl, logoScale]);
+
+  // 한 번 생성한 뒤에는 옵션을 바꿀 때마다 즉시 다시 그린다
+  useEffect(() => {
+    if (hasGeneratedRef.current) handleGenerate();
+  }, [handleGenerate]);
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setLogoError("이미지 파일만 사용할 수 있습니다");
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError("2MB 이하 이미지만 사용할 수 있습니다");
+      return;
+    }
+    setLogoError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoDataUrl(reader.result as string);
+      setLogoName(file.name);
+    };
+    reader.onerror = () => setLogoError("이미지를 읽지 못했습니다");
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = () => {
+    setLogoDataUrl(null);
+    setLogoName("");
+    setLogoError(null);
   };
 
   const handleDownload = () => {
@@ -488,6 +634,20 @@ export default function QrToolPage() {
   }, [stopCamera]);
 
   const hasResults = scanResults.length > 0;
+
+  // 색상 경고 — 실제 디코딩(scanUnreadable)과 별개로, 스캐너 호환성 문제를 미리 알린다
+  const ratio = contrastRatio(
+    isValidHex(fgColor) ? fgColor : DEFAULT_FG,
+    isValidHex(bgColor) ? bgColor : DEFAULT_BG,
+  );
+  const isInverted =
+    relLuminance(isValidHex(fgColor) ? fgColor : DEFAULT_FG) >
+    relLuminance(isValidHex(bgColor) ? bgColor : DEFAULT_BG);
+  const colorWarning = isInverted
+    ? "전경색이 배경색보다 밝습니다. 반전된 QR은 인식하지 못하는 스캐너가 많습니다."
+    : ratio < 3
+      ? `명암비 ${ratio.toFixed(1)}:1 — 너무 낮아 스캔에 실패할 수 있습니다 (3:1 이상 권장)`
+      : null;
 
   return (
     <ToolPageLayout
@@ -561,6 +721,112 @@ export default function QrToolPage() {
               </select>
             </div>
 
+            {/* 색상 */}
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["전경색 (모듈)", fgColor, setFgColor],
+                ["배경색", bgColor, setBgColor],
+              ] as const).map(([label, value, setValue]) => (
+                <div key={label}>
+                  <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                    {label}
+                  </label>
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-secondary px-2 py-1.5">
+                    <input
+                      type="color"
+                      value={isValidHex(value) ? value : "#000000"}
+                      onChange={(e) => setValue(e.target.value)}
+                      className="size-7 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+                      aria-label={label}
+                    />
+                    <input
+                      type="text"
+                      value={value}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setValue(v.startsWith("#") ? v : `#${v}`);
+                      }}
+                      spellCheck={false}
+                      className="w-full bg-transparent font-mono text-xs uppercase text-text-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {colorWarning && (
+              <p className="flex items-start gap-1.5 text-xs text-amber-500">
+                <AlertTriangle size={13} className="mt-px shrink-0" />
+                {colorWarning}
+              </p>
+            )}
+
+            {/* 로고 */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                가운데 로고 <span className="text-text-secondary">(선택)</span>
+              </label>
+              {logoDataUrl ? (
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-bg-secondary p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoDataUrl}
+                    alt="로고 미리보기"
+                    className="size-9 shrink-0 rounded object-contain"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-xs text-text-secondary">
+                    {logoName}
+                  </span>
+                  <button
+                    onClick={removeLogo}
+                    className="shrink-0 text-text-secondary transition-colors hover:text-red-400"
+                    aria-label="로고 제거"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => logoInputRef.current?.click()}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-sm text-text-secondary transition-colors hover:border-brand/60 hover:text-brand"
+                >
+                  <ImageIcon size={15} />
+                  로고 이미지 선택
+                </button>
+              )}
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoChange}
+              />
+              {logoError && <p className="mt-1.5 text-xs text-red-400">{logoError}</p>}
+            </div>
+
+            {logoDataUrl && (
+              <div>
+                <label className="mb-1.5 flex items-center justify-between text-sm font-medium text-text-primary">
+                  로고 크기
+                  <span className="font-mono text-xs text-text-secondary">
+                    {Math.round(logoScale * 100)}%
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min={10}
+                  max={30}
+                  value={Math.round(logoScale * 100)}
+                  onChange={(e) => setLogoScale(Number(e.target.value) / 100)}
+                  className="w-full accent-brand"
+                />
+                <p className="mt-1 text-xs text-text-secondary">
+                  오류 복원 레벨이 H(30%)로 자동 상향됩니다. 내용이 짧을수록 큰 로고를
+                  견디지 못하니 아래 스캔 검증 결과를 확인하세요.
+                </p>
+              </div>
+            )}
+
             <button
               onClick={handleGenerate}
               disabled={!inputText.trim() || isGenerating}
@@ -569,6 +835,13 @@ export default function QrToolPage() {
               <QrCode size={15} />
               {isGenerating ? "생성 중..." : "QR 코드 생성"}
             </button>
+
+            {generateError && (
+              <p className="flex items-start gap-1.5 text-xs text-red-400">
+                <AlertTriangle size={13} className="mt-px shrink-0" />
+                {generateError}
+              </p>
+            )}
           </div>
 
           {/* Preview panel */}
@@ -576,10 +849,23 @@ export default function QrToolPage() {
             {qrDataUrl ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrDataUrl} alt="생성된 QR 코드" className="rounded-lg" />
+                <img src={qrDataUrl} alt="생성된 QR 코드" className="max-w-full rounded-lg" />
+
+                {scanUnreadable ? (
+                  <p className="mt-4 flex items-start gap-1.5 text-xs text-red-400">
+                    <AlertTriangle size={13} className="mt-px shrink-0" />
+                    스캔 검증 실패 — 로고 크기를 줄이거나 명암비를 높여 주세요
+                  </p>
+                ) : (
+                  <p className="mt-4 flex items-center gap-1.5 text-xs text-emerald-500">
+                    <CheckCheck size={13} />
+                    스캔 검증됨
+                  </p>
+                )}
+
                 <button
                   onClick={handleDownload}
-                  className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-bg-primary px-4 py-2 text-sm text-text-primary transition-colors hover:border-brand hover:text-brand"
+                  className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-bg-primary px-4 py-2 text-sm text-text-primary transition-colors hover:border-brand hover:text-brand"
                 >
                   <Download size={15} />
                   PNG 다운로드
