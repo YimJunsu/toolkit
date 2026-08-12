@@ -651,14 +651,53 @@ export const ETC_TOOLS: ToolItem[] = [
 ];
 
 /** 카테고리 ID → 도구 목록 맵 */
+export const UTILITY_TOOLS: ToolItem[] = [
+  ...WEB_TOOLS,
+  ...CONVERTER_TOOLS,
+  ...TEXT_TOOLS,
+  ...DATA_FORMAT_TOOLS,
+];
+
+export const FUN_TOOLS: ToolItem[] = [
+  {
+    id: "coffee-bet",
+    label: "커피내기 / 미니게임",
+    description: "팀원과 커피 내기를 할 수 있는 다양한 미니 게임 모음",
+    href: "/tools/etc/coffee-bet",
+    icon: Coffee,
+    badge: "인기",
+    keywords: ["동물달리기", "미니게임", "내기", "게임", "팀게임", "팀빌딩", "사다리타기", "랜덤뽑기", "팀원선택"],
+  },
+  {
+    id: "ascii-art",
+    label: "ASCII Art Generator",
+    description: "텍스트를 ASCII 아트로 변환 · 다양한 폰트 스타일 선택",
+    href: "/tools/etc/ascii-art",
+    icon: Pilcrow,
+    keywords: ["ASCII아트", "텍스트아트", "ASCII", "아스키", "텍스트변환", "아스키아트", "배너"],
+  },
+  {
+    id: "crypto-tracker",
+    label: "암호화폐 시세",
+    description: "상위 50개 코인 실시간 시세 · 가격 차트 · 검색 (60초 자동 갱신)",
+    href: "/tools/etc/crypto-tracker",
+    icon: TrendingUp,
+    keywords: ["비트코인", "이더리움", "코인", "가상화폐", "BTC", "ETH", "코인시세", "암호화폐가격"],
+  },
+];
+
 export const TOOLS_BY_CATEGORY: Record<string, ToolItem[]> = {
-  code: CODE_TOOLS,
+  code: [...CODE_TOOLS, ...ENCODE_DECODE_TOOLS],
   design: DESIGN_TOOLS,
+  jobs: JOBS_TOOLS,
+  utility: UTILITY_TOOLS,
+  fun: FUN_TOOLS,
+
+  // Fallback aliases for direct sub-routes if accessed via old links
+  web: UTILITY_TOOLS,
+  etc: FUN_TOOLS,
+  "data-format": DATA_FORMAT_TOOLS,
+  converter: CONVERTER_TOOLS,
   "encode-decode": ENCODE_DECODE_TOOLS,
   text: TEXT_TOOLS,
-  converter: CONVERTER_TOOLS,
-  web: WEB_TOOLS,
-  "data-format": DATA_FORMAT_TOOLS,
-  jobs: JOBS_TOOLS,
-  etc: ETC_TOOLS,
-};
+};

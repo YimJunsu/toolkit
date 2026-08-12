@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import { CategoryPageLayout } from "@/components/tools/CategoryPageLayout";
-import { WEB_TOOLS } from "@/lib/constants/tools";
+import { TOOLS_BY_CATEGORY } from "@/lib/constants/tools";
 
 export const metadata: Metadata = {
-  title: "Web 도구",
-  description: "색상 대비, SEO 분석, 성능 테스트, 메타 태그 미리보기 등 웹 개발 도구 모음",
+  title: "유틸리티 | tool.kit",
+  description: "QR 코드 생성기, 단위 변환기, 스톱워치, PDF 변환, 글자수 세기 등 유틸리티 도구 모음",
 };
 
 export default function WebCategoryPage() {
   return (
     <CategoryPageLayout
-      categoryId="web"
-      title="Web"
-      description="색상 대비, SEO 분석기, 성능 테스트, 메타 태그 미리보기 등 웹 개발 도구"
-      tools={WEB_TOOLS}
+      categoryId="utility"
+      title="유틸리티"
+      description="QR 코드 생성기, 단위 변환기, 스톱워치/타이머, PDF 변환, 글자수 세기 등 유용한 유틸리티 모음"
+      tools={TOOLS_BY_CATEGORY["utility"] ?? []}
     />
   );
 }
+
