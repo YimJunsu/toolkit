@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createChart, ColorType } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import {
   TrendingUp, Search, RefreshCw, ChevronUp, ChevronDown,
-  LayoutList, BarChart2, ArrowLeft, Maximize2, X,
+  LayoutList, BarChart2, Wifi, WifiOff,
 } from "lucide-react";
 import { ToolPageLayout } from "@/components/tools/ToolPageLayout";
 
@@ -12,30 +14,121 @@ const BREADCRUMBS = [
   { label: "기타", href: "/tools/etc" },
 ];
 
-const REFRESH_SEC = 60;
+/* ── 코인 메타데이터 ── */
+const COIN_META: Record<string, { name: string; base: string }> = {
+  BTCUSDT:  { name: "Bitcoin",           base: "BTC"  },
+  ETHUSDT:  { name: "Ethereum",          base: "ETH"  },
+  BNBUSDT:  { name: "BNB",               base: "BNB"  },
+  SOLUSDT:  { name: "Solana",            base: "SOL"  },
+  XRPUSDT:  { name: "XRP",               base: "XRP"  },
+  ADAUSDT:  { name: "Cardano",           base: "ADA"  },
+  AVAXUSDT: { name: "Avalanche",         base: "AVAX" },
+  DOGEUSDT: { name: "Dogecoin",          base: "DOGE" },
+  TRXUSDT:  { name: "TRON",              base: "TRX"  },
+  TONUSDT:  { name: "Toncoin",           base: "TON"  },
+  DOTUSDT:  { name: "Polkadot",          base: "DOT"  },
+  SHIBUSDT: { name: "Shiba Inu",         base: "SHIB" },
+  LTCUSDT:  { name: "Litecoin",          base: "LTC"  },
+  LINKUSDT: { name: "Chainlink",         base: "LINK" },
+  BCHUSDT:  { name: "Bitcoin Cash",      base: "BCH"  },
+  XLMUSDT:  { name: "Stellar",           base: "XLM"  },
+  NEARUSDT: { name: "NEAR Protocol",     base: "NEAR" },
+  ATOMUSDT: { name: "Cosmos",            base: "ATOM" },
+  ETCUSDT:  { name: "Ethereum Classic",  base: "ETC"  },
+  FILUSDT:  { name: "Filecoin",          base: "FIL"  },
+  APTUSDT:  { name: "Aptos",             base: "APT"  },
+  ARBUSDT:  { name: "Arbitrum",          base: "ARB"  },
+  OPUSDT:   { name: "Optimism",          base: "OP"   },
+  INJUSDT:  { name: "Injective",         base: "INJ"  },
+  SUIUSDT:  { name: "Sui",               base: "SUI"  },
+  RUNEUSDT: { name: "THORChain",         base: "RUNE" },
+  AAVEUSDT: { name: "Aave",              base: "AAVE" },
+  MKRUSDT:  { name: "Maker",             base: "MKR"  },
+  UNIUSDT:  { name: "Uniswap",           base: "UNI"  },
+  PEPEUSDT: { name: "Pepe",              base: "PEPE" },
+  LDOUSDT:  { name: "Lido DAO",          base: "LDO"  },
+  STXUSDT:  { name: "Stacks",            base: "STX"  },
+  SANDUSDT: { name: "The Sandbox",       base: "SAND" },
+  MANAUSDT: { name: "Decentraland",      base: "MANA" },
+  AXSUSDT:  { name: "Axie Infinity",     base: "AXS"  },
+  VETUSDT:  { name: "VeChain",           base: "VET"  },
+  HBARUSDT: { name: "Hedera",            base: "HBAR" },
+  GRTUSDT:  { name: "The Graph",         base: "GRT"  },
+  XTZUSDT:  { name: "Tezos",             base: "XTZ"  },
+  EGLDUSDT: { name: "MultiversX",        base: "EGLD" },
+  COMPUSDT: { name: "Compound",          base: "COMP" },
+  GALAUSDT: { name: "Gala",              base: "GALA" },
+  CHZUSDT:  { name: "Chiliz",            base: "CHZ"  },
+  ALGOUSDT: { name: "Algorand",          base: "ALGO" },
+  ICPUSDT:  { name: "Internet Computer", base: "ICP"  },
+};
 
-// 서버 API Route를 통해 호출 → 서버에서 60초 캐시 후 CoinGecko에 전달 (rate limit 방어)
-const MARKETS_URL = "/api/crypto";
-const chartUrl = (id: string, days: number) => `/api/crypto/chart?id=${encodeURIComponent(id)}&days=${days}`;
+const TOP_SYMBOLS = Object.keys(COIN_META);
 
-/* ── Types ── */
+/* 차트 탭에 표시할 주요 코인 */
+const TAB_SYMBOLS = [
+  "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT",
+  "ADAUSDT","AVAXUSDT","DOGEUSDT","TRXUSDT","TONUSDT",
+  "DOTUSDT","LTCUSDT","LINKUSDT","NEARUSDT","PEPEUSDT",
+];
+
+const CHART_INTERVALS = [
+  { value: "1m",  label: "1M"  },
+  { value: "5m",  label: "5M"  },
+  { value: "15m", label: "15M" },
+  { value: "30m", label: "30M" },
+  { value: "1h",  label: "1H"  },
+  { value: "4h",  label: "4H"  },
+  { value: "1d",  label: "1D"  },
+  { value: "1w",  label: "1W"  },
+];
+
+const iconUrl = (base: string) =>
+  `https://assets.coincap.io/assets/icons/${base.toLowerCase()}@2x.png`;
+
+/* ── 타입 ── */
 interface CoinData {
-  id: string;
-  symbol: string;
-  name: string;
-  image: string;
-  current_price: number;
+  symbol:                      string;
+  name:                        string;
+  base:                        string;
+  image:                       string;
+  current_price:               number;
+  price_change_24h:            number;
   price_change_percentage_24h: number;
-  price_change_percentage_7d_in_currency: number;
-  market_cap: number;
-  total_volume: number;
-  market_cap_rank: number;
-  high_24h: number;
-  low_24h: number;
-  sparkline_in_7d: { price: number[] };
+  volume_base:                 number;
+  quote_volume:                number;
+  high_24h:                    number;
+  low_24h:                     number;
+  open_price:                  number;
+  rank:                        number;
 }
 
-/* ── Format helpers ── */
+interface BinanceTicker {
+  symbol:             string;
+  priceChange:        string;
+  priceChangePercent: string;
+  lastPrice:          string;
+  openPrice:          string;
+  highPrice:          string;
+  lowPrice:           string;
+  volume:             string;
+  quoteVolume:        string;
+}
+
+interface TickerInfo {
+  price:  number;
+  change: number;
+  high:   number;
+  low:    number;
+  volume: number;
+}
+
+interface KlineMsg {
+  t: number; o: string; h: string;
+  l: string; c: string; v: string; x: boolean;
+}
+
+/* ── 포맷 헬퍼 ── */
 function fmtPrice(p: number): string {
   if (p >= 10000) return "$" + p.toLocaleString("en-US", { maximumFractionDigits: 0 });
   if (p >= 100)   return "$" + p.toFixed(2);
@@ -47,229 +140,388 @@ function fmtLarge(n: number): string {
   if (n >= 1e12) return "$" + (n / 1e12).toFixed(2) + "T";
   if (n >= 1e9)  return "$" + (n / 1e9).toFixed(2) + "B";
   if (n >= 1e6)  return "$" + (n / 1e6).toFixed(2) + "M";
-  return "$" + n.toLocaleString();
+  return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
-function fmtPct(n: number | null | undefined): string {
-  return (n ?? 0) >= 0 ? `+${(n ?? 0).toFixed(2)}%` : `${(n ?? 0).toFixed(2)}%`;
-}
-
-/* ── Sparkline SVG ── */
-function Sparkline({ prices, up }: { prices: number[]; up: boolean }) {
-  if (!prices?.length) return <div className="h-8 w-20" />;
-  const min = Math.min(...prices), max = Math.max(...prices);
-  const range = max - min || 1;
-  const W = 80, H = 32;
-  const pts = prices
-    .map((p, i) => `${((i / (prices.length - 1)) * W).toFixed(1)},${(H - ((p - min) / range) * (H - 4) - 2).toFixed(1)}`)
-    .join(" ");
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-      <polyline points={pts} fill="none" stroke={up ? "#34d399" : "#f87171"} strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
+function fmtPct(n: number): string {
+  return n >= 0 ? `+${n.toFixed(2)}%` : `${n.toFixed(2)}%`;
 }
 
-/* ── Full price chart SVG (with hover tooltip) ── */
-function PriceChart({ data, up, days, tall, gradId = "cg" }: {
-  data: [number, number][];
-  up: boolean;
-  days: number;
-  tall?: boolean;
-  gradId?: string;
-}) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  if (data.length < 2) return (
-    <div className="flex h-56 items-center justify-center text-sm text-text-secondary">데이터 없음</div>
-  );
-
-  const pad = { t: 20, r: 16, b: 36, l: 76 };
-  const W = 800, H = 260;
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-
-  const prices = data.map(d => d[1]);
-  const times  = data.map(d => d[0]);
-  const minP = Math.min(...prices), maxP = Math.max(...prices);
-  const rangeP = maxP - minP || 1;
-  const minT = times[0], maxT = times[times.length - 1];
-  const rangeT = maxT - minT || 1;
-
-  const tx = (t: number) => pad.l + ((t - minT) / rangeT) * pw;
-  const ty = (p: number) => pad.t + ph - ((p - minP) / rangeP) * ph;
-
-  const linePath = data.map(([t, p], i) => `${i === 0 ? "M" : "L"}${tx(t).toFixed(1)} ${ty(p).toFixed(1)}`).join(" ");
-  const areaPath = `${linePath} L${tx(maxT).toFixed(1)} ${(pad.t + ph).toFixed(1)} L${tx(minT).toFixed(1)} ${(pad.t + ph).toFixed(1)} Z`;
-
-  const color = up ? "#34d399" : "#f87171";
-
-  const yLabels = Array.from({ length: 5 }, (_, i) => {
-    const p = minP + rangeP * (i / 4);
-    return { y: ty(p), label: fmtPrice(p) };
-  });
-
-  const xCount = Math.min(6, data.length);
-  const step = Math.floor(data.length / xCount);
-  const xLabels = Array.from({ length: xCount }, (_, i) => {
-    const idx = Math.min(i * step, data.length - 1);
-    const t = data[idx][0];
-    const d = new Date(t);
-    return {
-      x: tx(t),
-      label: days === 1
-        ? d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-        : d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }),
-    };
-  });
-
-  /* ── Hover 핸들러 ── */
-  const handleMouseMove = (e: React.MouseEvent<SVGRectElement>) => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * W;
-    let bestIdx = 0, bestDist = Infinity;
-    data.forEach(([t], i) => {
-      const dist = Math.abs(tx(t) - svgX);
-      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-    });
-    setHoverIdx(bestIdx);
+function parseTicker(t: BinanceTicker, rank: number): CoinData | null {
+  const meta = COIN_META[t.symbol];
+  if (!meta) return null;
+  const last = parseFloat(t.lastPrice);
+  const open = parseFloat(t.openPrice);
+  return {
+    symbol:                      t.symbol,
+    name:                        meta.name,
+    base:                        meta.base,
+    image:                       iconUrl(meta.base),
+    current_price:               last,
+    price_change_24h:            parseFloat(t.priceChange),
+    price_change_percentage_24h: parseFloat(t.priceChangePercent),
+    volume_base:                 parseFloat(t.volume),
+    quote_volume:                parseFloat(t.quoteVolume),
+    high_24h:                    parseFloat(t.highPrice),
+    low_24h:                     parseFloat(t.lowPrice),
+    open_price:                  open,
+    rank,
   };
+}
 
-  /* ── Hover 데이터 계산 ── */
-  const hd        = hoverIdx !== null ? data[hoverIdx] : null;
-  const hPrice    = hd ? hd[1] : null;
-  const hTime     = hd ? hd[0] : null;
-  const hX        = hd ? tx(hd[0]) : null;
-  const hY        = hd ? ty(hd[1]) : null;
-  const firstP    = data[0][1];
-  const changePct = hPrice != null ? ((hPrice - firstP) / firstP) * 100 : null;
-  const changeAbs = hPrice != null ? hPrice - firstP : null;
-  const hUp       = (changePct ?? 0) >= 0;
+/* ═══════════════════════════════════════════════════════
+   lightweight-charts 기반 차트 패널
+   ══════════════════════════════════════════════════════ */
+function ChartPanel({ initialSymbol }: { initialSymbol: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef     = useRef<IChartApi | null>(null);
+  const candleRef    = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volRef       = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const klineWsRef   = useRef<WebSocket | null>(null);
 
-  /* 툴팁 X: 오른쪽 끝 근처면 왼쪽으로 */
-  const TW = 155, TH = 76;
-  const tooltipX  = hX != null ? (hX + TW + pad.r > W ? hX - TW - 8 : hX + 10) : 0;
-  const tooltipY  = pad.t + 2;
+  const [symbol,    setSymbol]    = useState(initialSymbol);
+  const [interval,  setIntervalV] = useState("1h");
+  const [ticker,    setTicker]    = useState<TickerInfo | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [loading,   setLoading]   = useState(false);
 
-  const timeLabel = hTime
-    ? (days === 1
-        ? new Date(hTime).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
-        : new Date(hTime).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))
-    : "";
+  /* initialSymbol이 바뀌면 (테이블 행 클릭) 심볼 갱신 */
+  useEffect(() => { setSymbol(initialSymbol); }, [initialSymbol]);
+
+  /* ── 차트 초기화 (마운트 시 1회) ── */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const chart = createChart(container, {
+      layout: {
+        background: { type: ColorType.Solid, color: "#0d1117" },
+        textColor: "#94a3b8",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: "#1e293b" },
+        horzLines: { color: "#1e293b" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: {
+        borderColor: "#1e293b",
+        textColor:   "#94a3b8",
+      },
+      timeScale: {
+        borderColor:         "#1e293b",
+        timeVisible:         true,
+        secondsVisible:      false,
+        rightBarStaysOnScroll: true,
+        fixLeftEdge:         false,
+        fixRightEdge:        false,
+      },
+      width:  container.clientWidth,
+      height: 460,
+    });
+
+    const candle = chart.addCandlestickSeries({
+      upColor:         "#10b981",
+      downColor:       "#ef4444",
+      borderUpColor:   "#10b981",
+      borderDownColor: "#ef4444",
+      wickUpColor:     "#10b981",
+      wickDownColor:   "#ef4444",
+    });
+
+    const vol = chart.addHistogramSeries({
+      priceFormat:  { type: "volume" },
+      priceScaleId: "vol",
+    });
+    chart.priceScale("vol").applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+    });
+
+    chartRef.current  = chart;
+    candleRef.current = candle;
+    volRef.current    = vol;
+
+    const ro = new ResizeObserver(() => {
+      if (container) chart.applyOptions({ width: container.clientWidth });
+    });
+    ro.observe(container);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+      chartRef.current  = null;
+      candleRef.current = null;
+      volRef.current    = null;
+    };
+  }, []);
+
+  /* ── 데이터 로드 + WS 연결 (심볼/인터벌 변경 시) ── */
+  useEffect(() => {
+    if (!candleRef.current || !volRef.current) return;
+
+    /* 이전 WS 정리 */
+    klineWsRef.current?.close();
+    klineWsRef.current = null;
+    setConnected(false);
+
+    /* 24hr 티커 */
+    fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`)
+      .then(r => r.json())
+      .then((d: {
+        priceChangePercent: string; lastPrice: string;
+        highPrice: string; lowPrice: string; quoteVolume: string;
+      }) => {
+        setTicker({
+          price:  parseFloat(d.lastPrice),
+          change: parseFloat(d.priceChangePercent),
+          high:   parseFloat(d.highPrice),
+          low:    parseFloat(d.lowPrice),
+          volume: parseFloat(d.quoteVolume),
+        });
+      })
+      .catch(() => {});
+
+    /* 500개 캔들 로드 */
+    setLoading(true);
+    fetch(
+      `https://api.binance.com/api/v3/klines` +
+      `?symbol=${symbol}&interval=${interval}&limit=500`
+    )
+      .then(r => r.json())
+      .then((data: (string | number)[][]) => {
+        if (!candleRef.current || !volRef.current) return;
+
+        const candles = data.map(k => ({
+          time:  Math.floor(Number(k[0]) / 1000) as Time,
+          open:  parseFloat(k[1] as string),
+          high:  parseFloat(k[2] as string),
+          low:   parseFloat(k[3] as string),
+          close: parseFloat(k[4] as string),
+        }));
+        const volumes = data.map(k => ({
+          time:  Math.floor(Number(k[0]) / 1000) as Time,
+          value: parseFloat(k[5] as string),
+          color:
+            parseFloat(k[4] as string) >= parseFloat(k[1] as string)
+              ? "#10b98125"
+              : "#ef444425",
+        }));
+
+        candleRef.current.setData(candles);
+        volRef.current.setData(volumes);
+        chartRef.current?.timeScale().fitContent();
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+
+    /* 실시간 WS 연결 */
+    const ws = new WebSocket(
+      `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${interval}`
+    );
+
+    ws.onopen  = () => setConnected(true);
+    ws.onclose = () => setConnected(false);
+    ws.onerror = () => setConnected(false);
+
+    ws.onmessage = (e: MessageEvent) => {
+      try {
+        const msg = JSON.parse(e.data as string) as { k?: KlineMsg };
+        const k = msg.k;
+        if (!k) return;
+
+        const t = Math.floor(k.t / 1000) as Time;
+        const up = parseFloat(k.c) >= parseFloat(k.o);
+
+        /* 양 끝 update 오류 방지: try-catch로 감싸 안전하게 처리 */
+        try {
+          candleRef.current?.update({
+            time:  t,
+            open:  parseFloat(k.o),
+            high:  parseFloat(k.h),
+            low:   parseFloat(k.l),
+            close: parseFloat(k.c),
+          });
+        } catch { /* 타임스탬프 순서 오류 등 무시 */ }
+
+        try {
+          volRef.current?.update({
+            time:  t,
+            value: parseFloat(k.v),
+            color: up ? "#10b98125" : "#ef444425",
+          });
+        } catch { /* 무시 */ }
+
+        setTicker(prev =>
+          prev ? { ...prev, price: parseFloat(k.c) } : prev
+        );
+      } catch { /* JSON 파싱 오류 무시 */ }
+    };
+
+    klineWsRef.current = ws;
+
+    return () => {
+      ws.close();
+      klineWsRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, interval]);
+
+  const meta  = COIN_META[symbol] ?? { name: symbol, base: symbol.replace("USDT", "") };
+  const isUp  = (ticker?.change ?? 0) >= 0;
+  const clrUp = "text-emerald-400";
+  const clrDn = "text-red-400";
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${W} ${H}`}
-      className={`w-full ${tall ? "" : "h-[260px] sm:h-[420px]"}`}
-      style={tall ? { height: "100%" } : undefined}
-    >
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
+    <div className="flex flex-col gap-4">
 
-      {/* 격자 */}
-      {yLabels.map(({ y }, i) => (
-        <line key={i} x1={pad.l} y1={y} x2={W - pad.r} y2={y}
-          stroke="rgba(74,76,128,0.4)" strokeWidth="1" strokeDasharray="4,4" />
-      ))}
+      {/* ── 티커 헤더 ── */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-border bg-bg-secondary px-5 py-4">
+        {/* 코인 이름 */}
+        <div>
+          <div className="text-xl font-bold text-text-primary">
+            {meta.base}
+            <span className="ml-1.5 text-sm font-normal text-text-secondary">/ USDT</span>
+          </div>
+          <div className="text-xs text-text-secondary">{meta.name}</div>
+        </div>
 
-      {/* 영역 + 선 */}
-      <path d={areaPath} fill={`url(#${gradId})`} />
-      <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+        {ticker ? (
+          <>
+            {/* 가격 */}
+            <div className={`font-mono text-3xl font-bold tabular-nums ${isUp ? clrUp : clrDn}`}>
+              {fmtPrice(ticker.price)}
+            </div>
 
-      {/* Y 레이블 */}
-      {yLabels.map(({ y, label }, i) => (
-        <text key={i} x={pad.l - 8} y={y + 4} textAnchor="end" fontSize="11"
-          fill="rgba(128,128,184,0.9)">{label}</text>
-      ))}
+            {/* 변동률 배지 */}
+            <div className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-base font-semibold ${
+              isUp
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-red-500/30 bg-red-500/10 text-red-400"
+            }`}>
+              <span>{isUp ? "▲" : "▼"}</span>
+              <span>{isUp ? "+" : ""}{ticker.change.toFixed(2)}%</span>
+            </div>
 
-      {/* X 레이블 */}
-      {xLabels.map(({ x, label }, i) => (
-        <text key={i} x={x} y={H - 8} textAnchor="middle" fontSize="11"
-          fill="rgba(128,128,184,0.9)">{label}</text>
-      ))}
+            {/* 스탯 */}
+            <div className="ml-auto flex gap-6">
+              {([
+                { label: "24H 고가", value: fmtPrice(ticker.high), cls: clrUp },
+                { label: "24H 저가", value: fmtPrice(ticker.low),  cls: clrDn },
+                { label: "24H 거래량", value: fmtLarge(ticker.volume), cls: "text-text-primary" },
+              ] as const).map(s => (
+                <div key={s.label}>
+                  <p className="mb-0.5 text-xs text-text-secondary">{s.label}</p>
+                  <p className={`font-mono text-sm font-semibold ${s.cls}`}>{s.value}</p>
+                </div>
+              ))}
+            </div>
 
-      {/* ── 호버 레이어 ── */}
-      {hoverIdx !== null && hX !== null && hY !== null && (
-        <>
-          {/* 수직 크로스헤어 */}
-          <line x1={hX} y1={pad.t} x2={hX} y2={pad.t + ph}
-            stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="4,3" />
-          {/* 수평 크로스헤어 */}
-          <line x1={pad.l} y1={hY} x2={W - pad.r} y2={hY}
-            stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="4,3" />
-          {/* 현재 Y값 우측 레이블 */}
-          <rect x={W - pad.r} y={hY - 9} width={pad.r + 2} height={18}
-            fill={color} rx="3" opacity="0.9" />
-          {/* 도트 */}
-          <circle cx={hX} cy={hY} r="4.5" fill={color} stroke="white" strokeWidth="2" />
-          {/* 외곽 발광 */}
-          <circle cx={hX} cy={hY} r="8" fill={color} opacity="0.15" />
+            {/* WS 상태 */}
+            <div className={`flex items-center gap-1.5 text-xs font-medium ${connected ? "text-emerald-400" : "text-text-secondary"}`}>
+              <span className={`inline-block h-2 w-2 rounded-full ${
+                connected ? "bg-emerald-400 shadow-[0_0_6px_#10b981] animate-pulse" : "bg-gray-500"
+              }`} />
+              {connected ? "LIVE" : "연결 중..."}
+            </div>
+          </>
+        ) : (
+          <div className="text-sm text-text-secondary animate-pulse">불러오는 중…</div>
+        )}
+      </div>
 
-          {/* 툴팁 박스 */}
-          <rect x={tooltipX} y={tooltipY} width={TW} height={TH}
-            rx="7" fill="rgba(10,10,18,0.93)" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
-          {/* 왼쪽 컬러 바 */}
-          <rect x={tooltipX} y={tooltipY} width="3" height={TH}
-            rx="3" fill={color} opacity="0.8" />
+      {/* ── 코인 탭 (가로 스크롤) ── */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-bg-secondary px-4 py-3">
+        <div className="flex gap-1.5" style={{ minWidth: "max-content" }}>
+          {TAB_SYMBOLS.map(sym => {
+            const m = COIN_META[sym];
+            return (
+              <button
+                key={sym}
+                onClick={() => setSymbol(sym)}
+                className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition-all ${
+                  symbol === sym
+                    ? "border-blue-500/60 bg-blue-500/15 text-blue-400"
+                    : "border-border text-text-secondary hover:border-brand/50 hover:text-text-primary"
+                }`}
+              >
+                {m?.base ?? sym.replace("USDT", "")}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* 시간 */}
-          <text x={tooltipX + 12} y={tooltipY + 17} fontSize="10"
-            fill="rgba(180,180,210,0.75)">{timeLabel}</text>
-          {/* 가격 */}
-          <text x={tooltipX + 12} y={tooltipY + 38} fontSize="16" fontWeight="bold"
-            fill="white">{hPrice != null ? fmtPrice(hPrice) : ""}</text>
-          {/* 변동 */}
-          <text x={tooltipX + 12} y={tooltipY + 60} fontSize="11"
-            fill={hUp ? "#34d399" : "#f87171"}>
-            {changePct != null
-              ? `${hUp ? "▲" : "▼"} ${Math.abs(changePct).toFixed(2)}%  (${hUp ? "+" : "-"}${fmtPrice(Math.abs(changeAbs ?? 0))})`
-              : ""}
-          </text>
-        </>
-      )}
+      {/* ── 차트 카드 ── */}
+      <div className="relative overflow-hidden rounded-xl border border-border bg-[#0d1117]">
 
-      {/* 마우스 이벤트 수신용 투명 오버레이 (차트 영역만) */}
-      <rect
-        x={pad.l} y={pad.t} width={pw} height={ph}
-        fill="transparent"
-        style={{ cursor: "crosshair" }}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoverIdx(null)}
-      />
-    </svg>
+        {/* 인터벌 선택 바 */}
+        <div className="flex items-center gap-1 border-b border-[#1e293b] px-4 py-2.5">
+          <span className="mr-2 text-xs text-[#6b7280]">구간</span>
+          {CHART_INTERVALS.map(iv => (
+            <button
+              key={iv.value}
+              onClick={() => setIntervalV(iv.value)}
+              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
+                interval === iv.value
+                  ? "bg-blue-500 text-white"
+                  : "text-[#6b7280] hover:text-[#94a3b8]"
+              }`}
+            >
+              {iv.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 로딩 오버레이 */}
+        {loading && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/50">
+            <span className="text-sm text-blue-400">데이터 로딩 중...</span>
+          </div>
+        )}
+
+        {/* 차트 컨테이너 */}
+        <div ref={containerRef} className="w-full" />
+
+        {/* 하단 안내 */}
+        <p className="px-4 py-2 text-center text-xs text-[#374151]">
+          Powered by Binance WebSocket API · 실시간 시세 조회 전용 (주문 기능 없음)
+        </p>
+      </div>
+    </div>
   );
 }
 
-/* ── Main ── */
+/* ═══════════════════════════════════════════════════════
+   메인 페이지
+   ══════════════════════════════════════════════════════ */
 export default function CryptoTrackerPage() {
-  const [coins, setCoins]             = useState<CoinData[]>([]);
-  const [search, setSearch]           = useState("");
-  const [view, setView]               = useState<"table" | "chart">("table");
-  const [selected, setSelected]       = useState<CoinData | null>(null);
-  const [days, setDays]               = useState<1 | 7 | 30>(7);
-  const [chartData, setChartData]     = useState<[number, number][] | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [chartLoading, setChartLoading] = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [countdown, setCountdown]     = useState(REFRESH_SEC);
-  const [fullscreen, setFullscreen]   = useState(false);
+  const [coins, setCoins]   = useState<CoinData[]>([]);
+  const [search, setSearch] = useState("");
+  const [view, setView]     = useState<"table" | "chart">("table");
+  const [selected, setSelected] = useState<string>("BTCUSDT");
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [wsStatus, setWsStatus] = useState<"connecting" | "connected" | "disconnected">("disconnected");
 
+  const wsRef          = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingUpdates = useRef<Map<string, Partial<CoinData>>>(new Map());
+
+  /* ── 초기 시세 로드 ── */
   const fetchCoins = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch(MARKETS_URL);
+      const res = await fetch("/api/crypto");
       if (!res.ok) throw new Error(`API 오류 (${res.status})`);
-      const data: CoinData[] = await res.json();
-      setCoins(data);
-      setLastUpdated(new Date());
-      setCountdown(REFRESH_SEC);
+      const data: BinanceTicker[] = await res.json();
+
+      const sorted = [...data].sort(
+        (a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume)
+      );
+      const parsed = sorted
+        .map((t, i) => parseTicker(t, i + 1))
+        .filter((c): c is CoinData => c !== null);
+
+      setCoins(parsed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "불러오기 실패");
     } finally {
@@ -277,395 +529,242 @@ export default function CryptoTrackerPage() {
     }
   }, []);
 
-  /* 초기 로드 + 60초 자동갱신 */
-  useEffect(() => {
-    fetchCoins();
-    const iv = setInterval(fetchCoins, REFRESH_SEC * 1000);
-    return () => clearInterval(iv);
-  }, [fetchCoins]);
+  useEffect(() => { fetchCoins(); }, [fetchCoins]);
 
-  /* 카운트다운 */
+  /* ── 배치 업데이트 (500ms) ── */
   useEffect(() => {
-    const iv = setInterval(() => setCountdown(c => (c > 0 ? c - 1 : REFRESH_SEC)), 1000);
+    const iv = setInterval(() => {
+      if (pendingUpdates.current.size === 0) return;
+      const updates = new Map(pendingUpdates.current);
+      pendingUpdates.current.clear();
+      setCoins(prev =>
+        prev.map(coin => {
+          const u = updates.get(coin.symbol);
+          return u ? { ...coin, ...u } : coin;
+        })
+      );
+    }, 500);
     return () => clearInterval(iv);
   }, []);
 
-  /* 차트 데이터 */
-  useEffect(() => {
-    if (!selected) return;
-    setChartLoading(true);
-    setChartData(null);
-    fetch(chartUrl(selected.id, days))
-      .then(r => r.json())
-      .then(d => setChartData(d.prices))
-      .catch(() => setChartData(null))
-      .finally(() => setChartLoading(false));
-  }, [selected, days]);
+  /* ── Binance WebSocket (미니 티커, 45개 코인) ── */
+  const connectWs = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+    }
+    if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
 
-  /* ESC 키로 풀스크린 닫기 */
+    const streams = TOP_SYMBOLS.map(s => `${s.toLowerCase()}@miniTicker`).join("/");
+    setWsStatus("connecting");
+    const ws = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => setWsStatus("connected");
+
+    ws.onmessage = (e: MessageEvent) => {
+      try {
+        const msg = JSON.parse(e.data as string) as {
+          data?: { s: string; c: string; o: string; h: string; l: string; v: string; q: string };
+        };
+        const d = msg.data;
+        if (!d?.s) return;
+        const last = parseFloat(d.c), open = parseFloat(d.o);
+        pendingUpdates.current.set(d.s, {
+          current_price:               last,
+          price_change_24h:            last - open,
+          price_change_percentage_24h: ((last - open) / (open || 1)) * 100,
+          high_24h:                    parseFloat(d.h),
+          low_24h:                     parseFloat(d.l),
+          open_price:                  open,
+          volume_base:                 parseFloat(d.v),
+          quote_volume:                parseFloat(d.q),
+        });
+      } catch { /* ignore */ }
+    };
+
+    ws.onclose = () => {
+      setWsStatus("disconnected");
+      reconnectTimer.current = setTimeout(connectWs, 5000);
+    };
+    ws.onerror = () => ws.close();
+  }, []);
+
   useEffect(() => {
-    if (!fullscreen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [fullscreen]);
+    connectWs();
+    return () => {
+      wsRef.current?.close();
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    };
+  }, [connectWs]);
 
   const filtered = coins.filter(c =>
     !search ||
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.symbol.toLowerCase().includes(search.toLowerCase())
+    c.base.toLowerCase().includes(search.toLowerCase())
   );
 
-  const openChart = (coin: CoinData) => {
-    setSelected(coin);
+  const openChart = (symbol: string) => {
+    setSelected(symbol);
     setView("chart");
   };
-
-  const p24up = (selected?.price_change_percentage_24h ?? 0) >= 0;
 
   return (
     <ToolPageLayout
       breadcrumbs={BREADCRUMBS}
       title="암호화폐 시세"
-      description="CoinGecko 기준 상위 50개 코인 실시간 시세. 60초마다 자동 갱신됩니다."
+      description="Binance WebSocket 실시간 가격 · TradingView 캔들스틱 차트"
       icon={TrendingUp}
     >
       <div className="flex flex-col gap-5">
 
-        {/* 컨트롤 바 */}
+        {/* ── 공통 컨트롤 바 ── */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[180px] flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="코인 검색 (BTC, Ethereum…)"
-              className="w-full rounded-xl border border-border bg-bg-secondary py-2.5 pl-9 pr-4 text-sm text-text-primary placeholder-text-secondary/50 focus:border-brand focus:outline-none"
-            />
-          </div>
+          {view === "table" && (
+            <div className="relative min-w-[180px] flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="코인 검색 (BTC, Bitcoin…)"
+                className="w-full rounded-xl border border-border bg-bg-secondary py-2.5 pl-9 pr-4 text-sm text-text-primary placeholder-text-secondary/50 focus:border-brand focus:outline-none"
+              />
+            </div>
+          )}
 
           <div className="flex overflow-hidden rounded-xl border border-border">
-            <button type="button" onClick={() => setView("table")}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors ${view === "table" ? "bg-brand text-white" : "text-text-secondary hover:text-text-primary"}`}>
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors ${view === "table" ? "bg-brand text-white" : "text-text-secondary hover:text-text-primary"}`}
+            >
               <LayoutList size={13} /> 목록
             </button>
-            <button type="button" onClick={() => setView("chart")}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors ${view === "chart" ? "bg-brand text-white" : "text-text-secondary hover:text-text-primary"}`}>
+            <button
+              type="button"
+              onClick={() => setView("chart")}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors ${view === "chart" ? "bg-brand text-white" : "text-text-secondary hover:text-text-primary"}`}
+            >
               <BarChart2 size={13} /> 차트
             </button>
           </div>
 
-          <button type="button" onClick={fetchCoins}
-            className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand">
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            {countdown}s
-          </button>
+          {/* WS 상태 (목록 뷰에서만 표시) */}
+          {view === "table" && (
+            <div className={`flex items-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-medium ${
+              wsStatus === "connected"
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                : wsStatus === "connecting"
+                ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-400"
+                : "border-red-500/40 bg-red-500/10 text-red-400"
+            }`}>
+              {wsStatus === "connected"
+                ? <><Wifi size={12} /><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />실시간</>
+                : wsStatus === "connecting"
+                ? <><WifiOff size={12} />연결 중…</>
+                : <><WifiOff size={12} />재연결 중…</>
+              }
+            </div>
+          )}
 
-          {lastUpdated && (
-            <span className="hidden sm:inline text-xs text-text-secondary">
-              {lastUpdated.toLocaleTimeString("ko-KR")} 기준
-            </span>
+          {view === "table" && (
+            <button
+              type="button"
+              onClick={fetchCoins}
+              className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-xs text-text-secondary transition-colors hover:border-brand/50 hover:text-brand"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+              새로고침
+            </button>
           )}
         </div>
 
-        {/* 오류 */}
         {error && (
           <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-xs text-red-400">
-            {error} — 잠시 후 자동으로 재시도됩니다.
+            {error}
           </div>
         )}
 
         {/* ── 목록 뷰 ── */}
         {view === "table" && (
-          loading
-            ? <div className="flex h-40 items-center justify-center text-sm text-text-secondary animate-pulse">시세 불러오는 중…</div>
-            : (
-              <div className="overflow-x-auto rounded-xl border border-border">
-                <table className="w-full min-w-[340px] text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-bg-secondary text-xs font-semibold text-text-secondary">
-                      <th className="px-3 py-3 text-left">#</th>
-                      <th className="px-3 py-3 text-left">코인</th>
-                      <th className="px-3 py-3 text-right">가격</th>
-                      <th className="px-3 py-3 text-right">24H</th>
-                      <th className="hidden sm:table-cell px-3 py-3 text-right">7D</th>
-                      <th className="hidden md:table-cell px-3 py-3 text-right">시가총액</th>
-                      <th className="hidden lg:table-cell px-3 py-3 text-right">거래량 24H</th>
-                      <th className="hidden sm:table-cell px-3 py-3 text-right">7일 추이</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filtered.map(coin => {
-                      const p24 = coin.price_change_percentage_24h ?? 0;
-                      const p7  = coin.price_change_percentage_7d_in_currency ?? 0;
-                      return (
-                        <tr key={coin.id} onClick={() => openChart(coin)}
-                          className="cursor-pointer transition-colors hover:bg-brand/5">
-                          <td className="px-3 py-3 text-xs text-text-secondary">{coin.market_cap_rank}</td>
-                          <td className="px-3 py-3">
-                            <div className="flex items-center gap-2">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={coin.image} alt={coin.name} width={24} height={24} className="rounded-full shrink-0" />
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-text-primary">{coin.name}</p>
-                                <p className="text-xs uppercase text-text-secondary">{coin.symbol}</p>
-                              </div>
+          loading ? (
+            <div className="flex h-40 items-center justify-center text-sm text-text-secondary animate-pulse">
+              시세 불러오는 중…
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full min-w-[340px] text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-bg-secondary text-xs font-semibold text-text-secondary">
+                    <th className="px-3 py-3 text-left">#</th>
+                    <th className="px-3 py-3 text-left">코인</th>
+                    <th className="px-3 py-3 text-right">현재가</th>
+                    <th className="px-3 py-3 text-right">24H</th>
+                    <th className="hidden sm:table-cell px-3 py-3 text-right">24H 고가</th>
+                    <th className="hidden sm:table-cell px-3 py-3 text-right">24H 저가</th>
+                    <th className="hidden md:table-cell px-3 py-3 text-right">거래량(USDT)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.map(coin => {
+                    const p24 = coin.price_change_percentage_24h;
+                    return (
+                      <tr
+                        key={coin.symbol}
+                        onClick={() => openChart(coin.symbol)}
+                        className="cursor-pointer transition-colors hover:bg-brand/5"
+                      >
+                        <td className="px-3 py-3 text-xs text-text-secondary">{coin.rank}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={coin.image} alt={coin.name}
+                              width={24} height={24}
+                              className="rounded-full shrink-0"
+                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-text-primary">{coin.name}</p>
+                              <p className="text-xs uppercase text-text-secondary">{coin.base}</p>
                             </div>
-                          </td>
-                          <td className="px-3 py-3 text-right font-mono text-sm font-semibold text-text-primary">
-                            {fmtPrice(coin.current_price)}
-                          </td>
-                          <td className={`px-3 py-3 text-right font-mono text-xs font-semibold ${p24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            <span className="flex items-center justify-end gap-0.5">
-                              {p24 >= 0 ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                              {Math.abs(p24).toFixed(2)}%
-                            </span>
-                          </td>
-                          <td className={`hidden sm:table-cell px-3 py-3 text-right font-mono text-xs font-semibold ${p7 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                            <span className="flex items-center justify-end gap-0.5">
-                              {p7 >= 0 ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                              {Math.abs(p7).toFixed(2)}%
-                            </span>
-                          </td>
-                          <td className="hidden md:table-cell px-3 py-3 text-right font-mono text-xs text-text-secondary">
-                            {fmtLarge(coin.market_cap)}
-                          </td>
-                          <td className="hidden lg:table-cell px-3 py-3 text-right font-mono text-xs text-text-secondary">
-                            {fmtLarge(coin.total_volume)}
-                          </td>
-                          <td className="hidden sm:table-cell px-3 py-3">
-                            <div className="flex justify-end">
-                              <Sparkline prices={coin.sparkline_in_7d?.price ?? []} up={p7 >= 0} />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-sm font-semibold text-text-primary">
+                          {fmtPrice(coin.current_price)}
+                        </td>
+                        <td className={`px-3 py-3 text-right font-mono text-xs font-semibold ${p24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          <span className="flex items-center justify-end gap-0.5">
+                            {p24 >= 0 ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                            {Math.abs(p24).toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="hidden sm:table-cell px-3 py-3 text-right font-mono text-xs text-emerald-400">
+                          {fmtPrice(coin.high_24h)}
+                        </td>
+                        <td className="hidden sm:table-cell px-3 py-3 text-right font-mono text-xs text-red-400">
+                          {fmtPrice(coin.low_24h)}
+                        </td>
+                        <td className="hidden md:table-cell px-3 py-3 text-right font-mono text-xs text-text-secondary">
+                          {fmtLarge(coin.quote_volume)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
         )}
 
         {/* ── 차트 뷰 ── */}
         {view === "chart" && (
-          <div className="flex flex-col gap-6">
-
-            {/* ── 컨트롤 바 ── */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-              {/* 코인 선택 행 */}
-              <div className="flex items-center gap-2">
-                {selected && (
-                  <button type="button" onClick={() => setSelected(null)}
-                    className="flex shrink-0 items-center gap-1 text-xs text-text-secondary transition-colors hover:text-brand">
-                    <ArrowLeft size={13} /> 전체
-                  </button>
-                )}
-                <select
-                  value={selected?.id ?? ""}
-                  onChange={e => {
-                    const c = coins.find(x => x.id === e.target.value);
-                    if (c) setSelected(c);
-                  }}
-                  className="w-full rounded-xl border border-border bg-bg-secondary px-3 py-2.5 text-sm text-text-primary focus:border-brand focus:outline-none sm:w-auto"
-                >
-                  <option value="">코인 선택…</option>
-                  {coins.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.symbol.toUpperCase()})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 기간 + 자세히 보기 행 */}
-              <div className="flex items-center gap-2">
-                <div className="flex overflow-hidden rounded-xl border border-border">
-                  {([1, 7, 30] as const).map(d => (
-                    <button key={d} type="button" onClick={() => setDays(d)}
-                      className={`px-4 py-2.5 text-sm font-medium transition-colors ${days === d ? "bg-brand text-white" : "text-text-secondary hover:text-text-primary"}`}>
-                      {d === 1 ? "24H" : d === 7 ? "7일" : "30일"}
-                    </button>
-                  ))}
-                </div>
-
-                {selected && (
-                  <button
-                    type="button"
-                    onClick={() => setFullscreen(true)}
-                    className="ml-auto flex items-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-sm text-text-secondary transition-colors hover:border-brand/50 hover:text-brand sm:ml-0"
-                  >
-                    <Maximize2 size={14} />
-                    <span className="hidden xs:inline">자세히 보기</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* ── 코인 선택 안 된 상태 ── */}
-            {!selected && (
-              <>
-                <div className="flex h-40 items-center justify-center rounded-xl border border-border bg-bg-secondary text-sm text-text-secondary">
-                  코인을 선택하거나 목록에서 행을 클릭하세요
-                </div>
-                {coins.length > 0 && (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                    {coins.slice(0, 10).map(coin => {
-                      const up = (coin.price_change_percentage_24h ?? 0) >= 0;
-                      return (
-                        <button key={coin.id} type="button" onClick={() => setSelected(coin)}
-                          className="flex flex-col gap-2 rounded-xl border border-border bg-bg-secondary p-4 text-left transition-colors hover:border-brand/50">
-                          <div className="flex items-center gap-2">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={coin.image} alt={coin.name} width={20} height={20} className="rounded-full" />
-                            <span className="text-xs font-bold uppercase text-text-secondary">{coin.symbol}</span>
-                          </div>
-                          <p className="font-mono text-sm font-bold text-text-primary">{fmtPrice(coin.current_price)}</p>
-                          <p className={`text-xs font-semibold ${up ? "text-emerald-400" : "text-red-400"}`}>
-                            {fmtPct(coin.price_change_percentage_24h)}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* ── 코인 선택 상태 ── */}
-            {selected && (
-              <>
-                {/* 가격 헤더 */}
-                <div className="rounded-xl border border-border bg-bg-secondary px-4 py-4 sm:px-6 sm:py-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    {/* 왼쪽: 코인 정보 + 가격 */}
-                    <div className="flex items-start gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={selected.image} alt={selected.name} width={44} height={44} className="mt-0.5 rounded-full shrink-0" />
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-baseline gap-1.5">
-                          <span className="text-lg font-bold text-text-primary sm:text-xl">{selected.name}</span>
-                          <span className="text-sm font-semibold uppercase text-text-secondary">{selected.symbol}</span>
-                          <span className="rounded-md bg-bg-primary px-2 py-0.5 text-xs text-text-secondary">
-                            #{selected.market_cap_rank}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-2xl font-bold text-text-primary sm:text-3xl">
-                            {fmtPrice(selected.current_price)}
-                          </span>
-                          <span className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-sm font-semibold ${p24up ? "bg-emerald-400/10 text-emerald-400" : "bg-red-400/10 text-red-400"}`}>
-                            {p24up ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                            {fmtPct(selected.price_change_percentage_24h)}
-                            <span className="text-xs font-normal opacity-70">24H</span>
-                          </span>
-                          {selected.price_change_percentage_7d_in_currency != null && (
-                            <span className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-sm font-semibold ${(selected.price_change_percentage_7d_in_currency ?? 0) >= 0 ? "bg-emerald-400/10 text-emerald-400" : "bg-red-400/10 text-red-400"}`}>
-                              {(selected.price_change_percentage_7d_in_currency ?? 0) >= 0 ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                              {fmtPct(selected.price_change_percentage_7d_in_currency)}
-                              <span className="text-xs font-normal opacity-70">7D</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {/* 오른쪽: 24H 범위 */}
-                    <div className="flex flex-col gap-1 sm:items-end">
-                      <span className="text-xs text-text-secondary">24H 범위</span>
-                      <div className="flex items-center gap-2 font-mono text-sm">
-                        <span className="text-red-400">{fmtPrice(selected.low_24h)}</span>
-                        <span className="text-text-secondary">—</span>
-                        <span className="text-emerald-400">{fmtPrice(selected.high_24h)}</span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border sm:w-44">
-                        <div
-                          className="h-full rounded-full bg-linear-to-r from-red-400 to-emerald-400"
-                          style={{
-                            width: `${Math.min(100, Math.max(0, ((selected.current_price - selected.low_24h) / ((selected.high_24h - selected.low_24h) || 1)) * 100))}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 차트 */}
-                {chartLoading ? (
-                  <div className="flex h-72 items-center justify-center rounded-xl border border-border bg-bg-secondary text-sm text-text-secondary animate-pulse">
-                    차트 불러오는 중…
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-border bg-bg-secondary p-4 pb-2">
-                    <PriceChart data={chartData ?? []} up={p24up} days={days} />
-                  </div>
-                )}
-
-                {/* 스탯 카드 */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {[
-                    { label: "시가총액",   sub: "Market Cap",   value: fmtLarge(selected.market_cap) },
-                    { label: "24H 거래량",  sub: "Volume 24H",  value: fmtLarge(selected.total_volume) },
-                    { label: "24H 최고",   sub: "High 24H",    value: fmtPrice(selected.high_24h),    up: true },
-                    { label: "24H 최저",   sub: "Low 24H",     value: fmtPrice(selected.low_24h),     up: false },
-                  ].map(({ label, sub, value, up: statUp }) => (
-                    <div key={label} className="flex flex-col gap-1 rounded-xl border border-border bg-bg-secondary px-4 py-3 sm:px-5 sm:py-4">
-                      <p className="text-xs font-semibold text-text-secondary">{label}</p>
-                      <p className="text-xs text-text-secondary/50">{sub}</p>
-                      <p className={`mt-1 font-mono text-base font-bold ${statUp === true ? "text-emerald-400" : statUp === false ? "text-red-400" : "text-text-primary"}`}>
-                        {value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* ── 풀스크린 오버레이 ── */}
-            {fullscreen && selected && chartData && (
-              <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
-                {/* 상단 바 */}
-                <div className="flex flex-col gap-2 border-b border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
-                  {/* 코인 정보 + 가격 */}
-                  <div className="flex items-center gap-2.5">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={selected.image} alt={selected.name} width={28} height={28} className="rounded-full shrink-0" />
-                    <span className="font-bold text-white">{selected.name}</span>
-                    <span className="text-sm uppercase text-white/40">{selected.symbol}</span>
-                    <span className="font-mono text-lg font-bold text-white sm:text-xl">{fmtPrice(selected.current_price)}</span>
-                    <span className={`text-sm font-medium ${p24up ? "text-emerald-400" : "text-red-400"}`}>
-                      {fmtPct(selected.price_change_percentage_24h)}
-                      <span className="ml-1 text-xs opacity-60">24H</span>
-                    </span>
-                  </div>
-                  {/* 컨트롤 */}
-                  <div className="flex items-center gap-2">
-                    <div className="flex overflow-hidden rounded-lg border border-white/20">
-                      {([1, 7, 30] as const).map(d => (
-                        <button key={d} type="button" onClick={() => setDays(d)}
-                          className={`px-4 py-1.5 text-xs font-medium transition-colors ${days === d ? "bg-white/20 text-white" : "text-white/50 hover:text-white"}`}>
-                          {d === 1 ? "24H" : d === 7 ? "7일" : "30일"}
-                        </button>
-                      ))}
-                    </div>
-                    <span className="hidden text-xs text-white/35 sm:inline">ESC 키를 눌러 닫기</span>
-                    <button
-                      type="button"
-                      onClick={() => setFullscreen(false)}
-                      className="ml-auto flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/20 text-white/60 transition-colors hover:border-white/50 hover:text-white sm:ml-0"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex-1 px-3 pb-4 sm:px-6 sm:pb-6" style={{ minHeight: 0 }}>
-                  <PriceChart data={chartData} up={p24up} days={days} tall gradId="cg-fs" />
-                </div>
-              </div>
-            )}
-          </div>
+          <ChartPanel
+            key={selected}
+            initialSymbol={selected}
+          />
         )}
 
-        <p className="text-center text-xs text-text-secondary">
-          데이터 제공: CoinGecko · {REFRESH_SEC}초마다 자동 갱신 · 투자 참고용으로만 활용하세요
-        </p>
       </div>
     </ToolPageLayout>
   );
