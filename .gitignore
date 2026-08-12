@@ -18,9 +18,12 @@
 # ---------------------
 # Build output
 # ---------------------
-/.next/        # Next.js 빌드 폴더
-/out/          # Next.js export output
-/build         # 일반 빌드 폴더
+# Next.js 빌드 폴더
+/.next/
+# Next.js export output
+/out/
+# 일반 빌드 폴더
+/build
 
 # ---------------------
 # Testing
@@ -31,7 +34,8 @@
 # Misc
 # ---------------------
 .DS_Store
-*.pem          # 인증서 파일
+# 인증서 파일
+*.pem
 
 # ---------------------
 # Debug logs
@@ -44,7 +48,8 @@ yarn-error.log*
 # ---------------------
 # Environment files
 # ---------------------
-.env*          # 필요 시 커밋 가능
+# 필요 시 커밋 가능
+.env*
 
 # ---------------------
 # Vercel deployment
